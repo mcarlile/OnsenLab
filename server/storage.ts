@@ -1,19 +1,52 @@
-import { type TestReading, type InsertTestReading } from "@shared/schema";
+import { type TestReading, type InsertTestReading, type TestStripBrand, type InsertTestStripBrand } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
+  // Test readings
   getTestReading(id: string): Promise<TestReading | undefined>;
   getAllTestReadings(): Promise<TestReading[]>;
   createTestReading(reading: InsertTestReading): Promise<TestReading>;
+  
+  // Test strip brands
+  getTestStripBrand(id: string): Promise<TestStripBrand | undefined>;
+  getAllTestStripBrands(): Promise<TestStripBrand[]>;
+  createTestStripBrand(brand: InsertTestStripBrand): Promise<TestStripBrand>;
+  updateTestStripBrand(id: string, brand: Partial<InsertTestStripBrand>): Promise<TestStripBrand | undefined>;
+  deleteTestStripBrand(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private testReadings: Map<string, TestReading>;
+  private testStripBrands: Map<string, TestStripBrand>;
 
   constructor() {
     this.testReadings = new Map();
+    this.testStripBrands = new Map();
+    
+    // Add some default test strip brands
+    const defaultBrands = [
+      {
+        id: randomUUID(),
+        name: "6-in-1 Test Strips",
+        manufacturer: "AquaChek",
+        description: "Tests pH, Total Chlorine, Total Bromine, Total Alkalinity, Total Hardness, and Cyanuric Acid",
+        colorRanges: null,
+      },
+      {
+        id: randomUUID(),
+        name: "7-Way Test Strips",
+        manufacturer: "JNW Direct",
+        description: "Tests pH, Free Chlorine, Total Chlorine, Bromine, Alkalinity, Hardness, and Cyanuric Acid",
+        colorRanges: null,
+      },
+    ];
+    
+    defaultBrands.forEach(brand => {
+      this.testStripBrands.set(brand.id, brand);
+    });
   }
 
+  // Test readings
   async getTestReading(id: string): Promise<TestReading | undefined> {
     return this.testReadings.get(id);
   }
@@ -30,6 +63,7 @@ export class MemStorage implements IStorage {
       id,
       timestamp: new Date(),
       imageUrl: insertReading.imageUrl ?? null,
+      brandId: insertReading.brandId ?? null,
       pH: insertReading.pH ?? null,
       chlorine: insertReading.chlorine ?? null,
       alkalinity: insertReading.alkalinity ?? null,
@@ -39,6 +73,46 @@ export class MemStorage implements IStorage {
     };
     this.testReadings.set(id, reading);
     return reading;
+  }
+
+  // Test strip brands
+  async getTestStripBrand(id: string): Promise<TestStripBrand | undefined> {
+    return this.testStripBrands.get(id);
+  }
+
+  async getAllTestStripBrands(): Promise<TestStripBrand[]> {
+    return Array.from(this.testStripBrands.values()).sort(
+      (a, b) => a.name.localeCompare(b.name)
+    );
+  }
+
+  async createTestStripBrand(insertBrand: InsertTestStripBrand): Promise<TestStripBrand> {
+    const id = randomUUID();
+    const brand: TestStripBrand = {
+      id,
+      name: insertBrand.name,
+      manufacturer: insertBrand.manufacturer,
+      description: insertBrand.description ?? null,
+      colorRanges: insertBrand.colorRanges ?? null,
+    };
+    this.testStripBrands.set(id, brand);
+    return brand;
+  }
+
+  async updateTestStripBrand(id: string, updates: Partial<InsertTestStripBrand>): Promise<TestStripBrand | undefined> {
+    const existing = this.testStripBrands.get(id);
+    if (!existing) return undefined;
+    
+    const updated: TestStripBrand = {
+      ...existing,
+      ...updates,
+    };
+    this.testStripBrands.set(id, updated);
+    return updated;
+  }
+
+  async deleteTestStripBrand(id: string): Promise<boolean> {
+    return this.testStripBrands.delete(id);
   }
 }
 

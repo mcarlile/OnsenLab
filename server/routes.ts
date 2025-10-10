@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
 import { analyzeTestStrip } from "./gemini";
-import { insertTestReadingSchema } from "@shared/schema";
+import { insertTestReadingSchema, insertTestStripBrandSchema } from "@shared/schema";
 import { z } from "zod";
 
 const upload = multer({
@@ -51,16 +51,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "No image file provided" });
       }
 
+      const brandId = req.body.brandId;
+      let brandInfo = null;
+
+      // Get brand information if provided
+      if (brandId) {
+        const brand = await storage.getTestStripBrand(brandId);
+        if (brand) {
+          brandInfo = {
+            name: brand.name,
+            manufacturer: brand.manufacturer,
+            description: brand.description,
+          };
+        }
+      }
+
       // Convert image to base64
       const imageBase64 = req.file.buffer.toString('base64');
       const mimeType = req.file.mimetype;
 
       // Analyze with Gemini AI
-      const analysis = await analyzeTestStrip(imageBase64, mimeType);
+      const analysis = await analyzeTestStrip(imageBase64, mimeType, brandInfo);
 
       // Validate and store the reading
       const readingData = insertTestReadingSchema.parse({
         imageUrl: null,
+        brandId: brandId || null,
         pH: analysis.pH,
         chlorine: analysis.chlorine,
         alkalinity: analysis.alkalinity,
@@ -86,6 +102,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         error: "Failed to analyze test strip", 
         details: error instanceof Error ? error.message : "Unknown error"
       });
+    }
+  });
+
+  // Get all test strip brands
+  app.get("/api/brands", async (req, res) => {
+    try {
+      const brands = await storage.getAllTestStripBrands();
+      res.json(brands);
+    } catch (error) {
+      console.error("Failed to fetch brands:", error);
+      res.status(500).json({ error: "Failed to fetch brands" });
+    }
+  });
+
+  // Create a new test strip brand
+  app.post("/api/brands", async (req, res) => {
+    try {
+      const brandData = insertTestStripBrandSchema.parse(req.body);
+      const brand = await storage.createTestStripBrand(brandData);
+      res.json(brand);
+    } catch (error) {
+      console.error("Failed to create brand:", error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid data format", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to create brand" });
+    }
+  });
+
+  // Update a test strip brand
+  app.patch("/api/brands/:id", async (req, res) => {
+    try {
+      const updates = insertTestStripBrandSchema.partial().parse(req.body);
+      const brand = await storage.updateTestStripBrand(req.params.id, updates);
+      
+      if (!brand) {
+        return res.status(404).json({ error: "Brand not found" });
+      }
+      
+      res.json(brand);
+    } catch (error) {
+      console.error("Failed to update brand:", error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid data format", 
+          details: error.errors 
+        });
+      }
+      
+      res.status(500).json({ error: "Failed to update brand" });
+    }
+  });
+
+  // Delete a test strip brand
+  app.delete("/api/brands/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteTestStripBrand(req.params.id);
+      
+      if (!success) {
+        return res.status(404).json({ error: "Brand not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete brand:", error);
+      res.status(500).json({ error: "Failed to delete brand" });
     }
   });
 

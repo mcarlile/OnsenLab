@@ -17,10 +17,24 @@ export interface ChemicalReadings {
   confidence: number;
 }
 
-export async function analyzeTestStrip(imageBase64: string, mimeType: string): Promise<ChemicalReadings> {
+interface BrandInfo {
+  name: string;
+  manufacturer: string;
+  description: string | null;
+}
+
+export async function analyzeTestStrip(
+  imageBase64: string, 
+  mimeType: string, 
+  brandInfo?: BrandInfo | null
+): Promise<ChemicalReadings> {
   try {
+    const brandContext = brandInfo 
+      ? `\n\nThe test strip is a ${brandInfo.manufacturer} ${brandInfo.name}.${brandInfo.description ? ` ${brandInfo.description}` : ''} Use this information to help identify the correct color ranges and parameters.`
+      : '';
+
     const systemPrompt = `You are an expert at analyzing hot tub and pool test strips from images.
-Analyze the test strip in the image and extract the chemical readings.
+Analyze the test strip in the image and extract the chemical readings.${brandContext}
 
 Look for these measurements:
 - pH (typically 6.0-8.4 range)
@@ -71,7 +85,7 @@ Be conservative with your confidence score - only give high confidence when the 
       ],
     });
 
-    const rawJson = result.response.text();
+    const rawJson = result.text;
 
     if (rawJson) {
       const data: ChemicalReadings = JSON.parse(rawJson);
