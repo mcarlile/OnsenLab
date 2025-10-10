@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Plus, Pencil, Trash2, ArrowLeft, Upload, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTestStripBrandSchema, type TestStripBrand } from "@shared/schema";
@@ -26,6 +26,9 @@ export default function BrandsManagement() {
   const [, setLocation] = useLocation();
   const [editingBrand, setEditingBrand] = useState<TestStripBrand | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   const { data: brands = [], isLoading } = useQuery<TestStripBrand[]>({
@@ -37,8 +40,41 @@ export default function BrandsManagement() {
     defaultValues: {
       name: "",
       manufacturer: "",
+      sku: "",
       description: "",
+      imageUrl: "",
       colorRanges: "",
+    },
+  });
+
+  const uploadImageMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      const response = await fetch('/api/brands/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data) => {
+      form.setValue('imageUrl', data.imageUrl);
+      setImagePreview(data.imageUrl);
+      setUploadingImage(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+      setUploadingImage(false);
     },
   });
 
@@ -50,6 +86,7 @@ export default function BrandsManagement() {
       queryClient.invalidateQueries({ queryKey: ['/api/brands'] });
       setDialogOpen(false);
       form.reset();
+      setImagePreview(null);
       toast({
         title: "Success",
         description: "Test strip brand added successfully",
@@ -73,6 +110,7 @@ export default function BrandsManagement() {
       setDialogOpen(false);
       setEditingBrand(null);
       form.reset();
+      setImagePreview(null);
       toast({
         title: "Success",
         description: "Test strip brand updated successfully",
@@ -120,9 +158,12 @@ export default function BrandsManagement() {
     form.reset({
       name: brand.name,
       manufacturer: brand.manufacturer,
+      sku: brand.sku || "",
       description: brand.description || "",
+      imageUrl: brand.imageUrl || "",
       colorRanges: brand.colorRanges || "",
     });
+    setImagePreview(brand.imageUrl || null);
     setDialogOpen(true);
   };
 
@@ -136,6 +177,20 @@ export default function BrandsManagement() {
     setDialogOpen(false);
     setEditingBrand(null);
     form.reset();
+    setImagePreview(null);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingImage(true);
+      uploadImageMutation.mutate(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    form.setValue('imageUrl', '');
+    setImagePreview(null);
   };
 
   return (
@@ -164,7 +219,7 @@ export default function BrandsManagement() {
                   <span className="hidden sm:inline">Add Brand</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>
                     {editingBrand ? "Edit Test Strip Brand" : "Add Test Strip Brand"}
@@ -177,6 +232,63 @@ export default function BrandsManagement() {
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="imageUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brand Image</FormLabel>
+                          <FormControl>
+                            <div className="space-y-2">
+                              {imagePreview ? (
+                                <div className="relative">
+                                  <img
+                                    src={imagePreview}
+                                    alt="Brand preview"
+                                    className="w-full h-48 object-cover rounded-md border"
+                                    data-testid="img-brand-preview"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="icon"
+                                    className="absolute top-2 right-2"
+                                    onClick={handleRemoveImage}
+                                    data-testid="button-remove-image"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full h-32 flex flex-col gap-2"
+                                  onClick={() => fileInputRef.current?.click()}
+                                  disabled={uploadingImage}
+                                  data-testid="button-upload-image"
+                                >
+                                  <Upload className="h-8 w-8" />
+                                  <span>{uploadingImage ? "Uploading..." : "Upload Image"}</span>
+                                </Button>
+                              )}
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleImageSelect}
+                                data-testid="input-brand-image"
+                              />
+                            </div>
+                          </FormControl>
+                          <FormDescription>
+                            Upload an image of the test strip for easy identification
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField
                       control={form.control}
                       name="name"
@@ -205,6 +317,24 @@ export default function BrandsManagement() {
                               placeholder="e.g., AquaChek" 
                               data-testid="input-brand-manufacturer"
                               {...field} 
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="sku"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SKU / Model Number (Optional)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              placeholder="e.g., AQ-6IN1" 
+                              data-testid="input-brand-sku"
+                              {...field}
+                              value={field.value || ""}
                             />
                           </FormControl>
                           <FormMessage />
@@ -273,11 +403,24 @@ export default function BrandsManagement() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {brands.map((brand) => (
               <Card key={brand.id} data-testid={`card-brand-${brand.id}`}>
+                {brand.imageUrl && (
+                  <div className="aspect-video w-full overflow-hidden rounded-t-lg">
+                    <img
+                      src={brand.imageUrl}
+                      alt={brand.name}
+                      className="w-full h-full object-cover"
+                      data-testid={`img-brand-${brand.id}`}
+                    />
+                  </div>
+                )}
                 <CardHeader>
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg truncate">{brand.name}</CardTitle>
                       <CardDescription className="truncate">{brand.manufacturer}</CardDescription>
+                      {brand.sku && (
+                        <p className="text-xs text-muted-foreground mt-1">SKU: {brand.sku}</p>
+                      )}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
                       <Button
