@@ -13,10 +13,14 @@ Preferred communication style: Simple, everyday language.
 ### October 10, 2025
 - **Enhanced Upload Flow**: Added dual upload options supporting both camera capture and gallery upload using HTML5 file input attributes
 - **Test Strip Brand Management**: Created dedicated brands management page (/brands) with full CRUD operations for test strip brands
+- **SKU & Image Management**: Added SKU/model number field and image upload capability for test strip brands
+  - Upload brand images for easy visual identification
+  - Images converted to base64 data URLs for in-memory storage
+  - Display brand images in card layout with image preview
 - **AI Accuracy Improvements**: Integrated brand selection into upload flow to provide context-specific information to Gemini AI for improved reading accuracy
-- **Schema Updates**: Added `test_strip_brands` table and `brandId` reference in `test_readings` for brand association
+- **Schema Updates**: Added `test_strip_brands` table with SKU and imageUrl fields, `brandId` reference in `test_readings` for brand association
 - **UI Enhancements**: Upload dialog now includes brand selector dropdown with link to brand management page
-- **Default Brands**: Pre-loaded AquaChek 6-in-1 and JNW Direct 7-Way test strips as default brands
+- **Default Brands**: Pre-loaded AquaChek 6-in-1 and JNW Direct 7-Way test strips as default brands with SKUs
 
 ## System Architecture
 
@@ -54,11 +58,12 @@ Preferred communication style: Simple, everyday language.
 **API Endpoints Structure**
 - `GET /api/readings` - Fetch all test readings
 - `GET /api/readings/:id` - Fetch specific reading
-- `POST /api/analyze` - Upload and analyze test strip image
+- `POST /api/analyze` - Upload and analyze test strip image (accepts image and optional brandId)
 - `GET /api/brands` - Fetch test strip brands
-- `POST /api/brands` - Create new brand
+- `POST /api/brands` - Create new brand (with SKU and image)
 - `PATCH /api/brands/:id` - Update brand
 - `DELETE /api/brands/:id` - Delete brand
+- `POST /api/brands/upload-image` - Upload brand image, returns base64 data URL
 
 **Image Capture & Upload**
 - Dual upload methods: camera capture (HTML5 `capture="environment"`) and gallery upload
@@ -82,7 +87,9 @@ Preferred communication style: Simple, everyday language.
 - Schema-first approach with migrations managed in `/migrations` directory
 
 **Schema Design**
-- `test_strip_brands` table: Stores test strip product information (id, name, manufacturer, description, color_ranges)
+- `test_strip_brands` table: Stores test strip product information (id, name, manufacturer, sku, description, imageUrl, color_ranges)
+  - SKU field for product/model identification
+  - imageUrl stores base64 data URLs for brand images
 - `test_readings` table: Chemical readings with timestamp, image URL, brand reference, and measurement values (pH, chlorine, alkalinity, bromine, hardness, confidence score)
 - UUID primary keys generated via `gen_random_uuid()`
 - Optional brand association for readings (nullable foreign key relationship)
