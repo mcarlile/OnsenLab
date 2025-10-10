@@ -177,6 +177,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Upload brand image
+  app.post("/api/brands/upload-image", upload.single('image'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No image file provided" });
+      }
+
+      // Convert image to base64 data URL for in-memory storage
+      const base64Image = req.file.buffer.toString('base64');
+      const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+
+      res.json({ imageUrl: dataUrl });
+    } catch (error) {
+      console.error("Failed to upload brand image:", error);
+      res.status(500).json({ error: "Failed to upload brand image" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
