@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { PhotoUpload } from "@/components/PhotoUpload";
+import { UploadDialog } from "@/components/UploadDialog";
 import { ChemicalLevelCard } from "@/components/ChemicalLevelCard";
 import { TrendChart } from "@/components/TrendChart";
 import { TestHistory } from "@/components/TestHistory";
 import { EmptyState } from "@/components/EmptyState";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Droplets, Activity, Calendar } from "lucide-react";
+import { Droplets, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   // TODO: Remove mock data - this will be replaced with real API data
@@ -84,6 +83,14 @@ export default function Dashboard() {
       alkalinity: 98,
       confidence: 0.90,
     },
+    {
+      id: '5',
+      timestamp: new Date('2025-01-06T15:30:00'),
+      pH: 7.4,
+      chlorine: 2.6,
+      alkalinity: 95,
+      confidence: 0.87,
+    },
   ];
 
   const handleUpload = (file: File) => {
@@ -93,155 +100,152 @@ export default function Dashboard() {
     setTimeout(() => {
       setIsAnalyzing(false);
       setHasData(true);
+      setUploadDialogOpen(false);
     }, 2000);
-  };
-
-  const scrollToUpload = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <Droplets className="h-6 w-6 text-primary" />
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="rounded-lg bg-primary/10 p-1.5 sm:p-2 flex-shrink-0">
+                <Droplets className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold truncate">Hot Tub Monitor</h1>
+                <p className="text-xs text-muted-foreground hidden sm:block">AI-Powered Water Chemistry</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold">Hot Tub Monitor</h1>
-              <p className="text-xs text-muted-foreground">AI-Powered Water Chemistry</p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button
+                onClick={() => setUploadDialogOpen(true)}
+                size="sm"
+                className="sm:h-9"
+                data-testid="button-new-test"
+              >
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">New Test</span>
+              </Button>
+              <ThemeToggle />
             </div>
           </div>
-          <ThemeToggle />
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-8">
-            <TabsTrigger value="dashboard" data-testid="tab-dashboard">
-              <Activity className="h-4 w-4 mr-2" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="history" data-testid="tab-history">
-              <Calendar className="h-4 w-4 mr-2" />
-              History
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-8">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {!hasData ? (
+          <EmptyState onUploadClick={() => setUploadDialogOpen(true)} />
+        ) : (
+          <div className="space-y-6 sm:space-y-8">
             <section>
-              <h2 className="text-2xl font-semibold mb-4">Upload Test Strip</h2>
-              <PhotoUpload onUpload={handleUpload} isAnalyzing={isAnalyzing} />
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl sm:text-2xl font-semibold">Current Levels</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground">Last updated: Today, 2:30 PM</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <ChemicalLevelCard
+                  name="pH"
+                  value={mockCurrentReadings.pH}
+                  unit="pH"
+                  optimalMin={7.2}
+                  optimalMax={7.8}
+                  warningMin={7.0}
+                  warningMax={8.0}
+                />
+                <ChemicalLevelCard
+                  name="Chlorine"
+                  value={mockCurrentReadings.chlorine}
+                  unit="ppm"
+                  optimalMin={1.0}
+                  optimalMax={3.0}
+                  warningMin={0.5}
+                  warningMax={5.0}
+                />
+                <ChemicalLevelCard
+                  name="Alkalinity"
+                  value={mockCurrentReadings.alkalinity}
+                  unit="ppm"
+                  optimalMin={80}
+                  optimalMax={120}
+                  warningMin={60}
+                  warningMax={150}
+                />
+                <ChemicalLevelCard
+                  name="Bromine"
+                  value={mockCurrentReadings.bromine}
+                  unit="ppm"
+                  optimalMin={2.0}
+                  optimalMax={4.0}
+                  warningMin={1.0}
+                  warningMax={6.0}
+                />
+                <ChemicalLevelCard
+                  name="Hardness"
+                  value={mockCurrentReadings.hardness}
+                  unit="ppm"
+                  optimalMin={150}
+                  optimalMax={250}
+                  warningMin={100}
+                  warningMax={400}
+                />
+              </div>
             </section>
 
-            {!hasData ? (
-              <EmptyState onUploadClick={scrollToUpload} />
-            ) : (
-              <>
-                <section>
-                  <h2 className="text-2xl font-semibold mb-4">Current Levels</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <ChemicalLevelCard
-                      name="pH"
-                      value={mockCurrentReadings.pH}
-                      unit="pH"
-                      optimalMin={7.2}
-                      optimalMax={7.8}
-                      warningMin={7.0}
-                      warningMax={8.0}
-                    />
-                    <ChemicalLevelCard
-                      name="Chlorine"
-                      value={mockCurrentReadings.chlorine}
-                      unit="ppm"
-                      optimalMin={1.0}
-                      optimalMax={3.0}
-                      warningMin={0.5}
-                      warningMax={5.0}
-                    />
-                    <ChemicalLevelCard
-                      name="Alkalinity"
-                      value={mockCurrentReadings.alkalinity}
-                      unit="ppm"
-                      optimalMin={80}
-                      optimalMax={120}
-                      warningMin={60}
-                      warningMax={150}
-                    />
-                    <ChemicalLevelCard
-                      name="Bromine"
-                      value={mockCurrentReadings.bromine}
-                      unit="ppm"
-                      optimalMin={2.0}
-                      optimalMax={4.0}
-                      warningMin={1.0}
-                      warningMax={6.0}
-                    />
-                    <ChemicalLevelCard
-                      name="Hardness"
-                      value={mockCurrentReadings.hardness}
-                      unit="ppm"
-                      optimalMin={150}
-                      optimalMax={250}
-                      warningMin={100}
-                      warningMax={400}
-                    />
-                  </div>
-                </section>
+            <section>
+              <h2 className="text-xl sm:text-2xl font-semibold mb-4">Trends Over Time</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <TrendChart
+                  title="pH Trend"
+                  data={mockTrendData.pH}
+                  optimalMin={7.2}
+                  optimalMax={7.8}
+                  unit="pH"
+                  color="hsl(var(--chart-1))"
+                />
+                <TrendChart
+                  title="Chlorine Trend"
+                  data={mockTrendData.chlorine}
+                  optimalMin={1.0}
+                  optimalMax={3.0}
+                  unit="ppm"
+                  color="hsl(var(--chart-2))"
+                />
+                <TrendChart
+                  title="Alkalinity Trend"
+                  data={mockTrendData.alkalinity}
+                  optimalMin={80}
+                  optimalMax={120}
+                  unit="ppm"
+                  color="hsl(var(--chart-3))"
+                />
+              </div>
+            </section>
 
-                <section>
-                  <h2 className="text-2xl font-semibold mb-4">Trends</h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <TrendChart
-                      title="pH Trend"
-                      data={mockTrendData.pH}
-                      optimalMin={7.2}
-                      optimalMax={7.8}
-                      unit="pH"
-                      color="hsl(var(--chart-1))"
-                    />
-                    <TrendChart
-                      title="Chlorine Trend"
-                      data={mockTrendData.chlorine}
-                      optimalMin={1.0}
-                      optimalMax={3.0}
-                      unit="ppm"
-                      color="hsl(var(--chart-2))"
-                    />
-                    <TrendChart
-                      title="Alkalinity Trend"
-                      data={mockTrendData.alkalinity}
-                      optimalMin={80}
-                      optimalMax={120}
-                      unit="ppm"
-                      color="hsl(var(--chart-3))"
-                    />
-                  </div>
-                </section>
-              </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="history">
-            {hasData ? (
+            <section>
+              <h2 className="text-xl sm:text-2xl font-semibold mb-4">Test History</h2>
               <TestHistory 
                 readings={mockHistory}
                 onViewDetails={(id) => console.log('View details for:', id)}
               />
-            ) : (
-              <EmptyState onUploadClick={() => setActiveTab("dashboard")} />
-            )}
-          </TabsContent>
-        </Tabs>
+            </section>
+          </div>
+        )}
       </main>
 
-      <footer className="border-t mt-16">
-        <div className="container mx-auto px-4 py-8 text-center text-sm text-muted-foreground">
+      <footer className="border-t mt-12 sm:mt-16">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-center text-xs sm:text-sm text-muted-foreground">
           <p>Hot Tub Monitor - Keep your water chemistry balanced</p>
         </div>
       </footer>
+
+      <UploadDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        onUpload={handleUpload}
+        isAnalyzing={isAnalyzing}
+      />
     </div>
   );
 }

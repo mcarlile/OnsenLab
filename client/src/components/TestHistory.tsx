@@ -22,30 +22,30 @@ export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Test History</CardTitle>
+        <CardTitle className="text-base sm:text-lg">Recent Tests</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-left py-3 px-2 text-sm font-medium text-muted-foreground">
+                <th className="text-left py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">
                   Date & Time
                 </th>
-                <th className="text-center py-3 px-2 text-sm font-medium text-muted-foreground">
+                <th className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">
                   pH
                 </th>
-                <th className="text-center py-3 px-2 text-sm font-medium text-muted-foreground">
+                <th className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground hidden sm:table-cell">
                   Chlorine
                 </th>
-                <th className="text-center py-3 px-2 text-sm font-medium text-muted-foreground">
+                <th className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground hidden md:table-cell">
                   Alkalinity
                 </th>
-                <th className="text-center py-3 px-2 text-sm font-medium text-muted-foreground">
+                <th className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground hidden lg:table-cell">
                   Confidence
                 </th>
-                <th className="text-right py-3 px-2 text-sm font-medium text-muted-foreground">
-                  Actions
+                <th className="text-right py-3 px-3 sm:px-4 text-xs sm:text-sm font-medium text-muted-foreground">
+                  
                 </th>
               </tr>
             </thead>
@@ -56,26 +56,29 @@ export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
                   className={index % 2 === 0 ? "bg-muted/30" : ""}
                   data-testid={`row-reading-${reading.id}`}
                 >
-                  <td className="py-3 px-2 text-sm font-mono">
-                    {format(reading.timestamp, "MMM d, yyyy HH:mm")}
+                  <td className="py-3 px-3 sm:px-4 text-xs sm:text-sm font-mono">
+                    <div className="flex flex-col">
+                      <span>{format(reading.timestamp, "MMM d, yyyy")}</span>
+                      <span className="text-muted-foreground text-xs">{format(reading.timestamp, "HH:mm")}</span>
+                    </div>
                   </td>
-                  <td className="text-center py-3 px-2 text-sm font-medium">
+                  <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium">
                     {reading.pH !== null ? reading.pH.toFixed(1) : "--"}
                   </td>
-                  <td className="text-center py-3 px-2 text-sm font-medium">
-                    {reading.chlorine !== null ? `${reading.chlorine.toFixed(1)} ppm` : "--"}
+                  <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden sm:table-cell">
+                    {reading.chlorine !== null ? `${reading.chlorine.toFixed(1)}` : "--"}
                   </td>
-                  <td className="text-center py-3 px-2 text-sm font-medium">
-                    {reading.alkalinity !== null ? `${reading.alkalinity.toFixed(0)} ppm` : "--"}
+                  <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden md:table-cell">
+                    {reading.alkalinity !== null ? `${reading.alkalinity.toFixed(0)}` : "--"}
                   </td>
-                  <td className="text-center py-3 px-2">
+                  <td className="text-center py-3 px-2 sm:px-3 hidden lg:table-cell">
                     {reading.confidence && (
-                      <Badge variant={reading.confidence >= 0.8 ? "default" : "secondary"}>
+                      <Badge variant={reading.confidence >= 0.8 ? "default" : "secondary"} className="text-xs">
                         {Math.round(reading.confidence * 100)}%
                       </Badge>
                     )}
                   </td>
-                  <td className="text-right py-3 px-2">
+                  <td className="text-right py-3 px-3 sm:px-4">
                     <Button
                       variant="ghost"
                       size="sm"
