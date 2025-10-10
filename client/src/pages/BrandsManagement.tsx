@@ -186,11 +186,19 @@ export default function BrandsManagement() {
       setUploadingImage(true);
       uploadImageMutation.mutate(file);
     }
+    // Clear the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleRemoveImage = () => {
     form.setValue('imageUrl', '');
     setImagePreview(null);
+    // Clear the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
