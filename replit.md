@@ -1,0 +1,101 @@
+# Hot Tub Monitoring Dashboard
+
+## Overview
+
+A web application for monitoring hot tub water chemistry through AI-powered test strip image analysis. Users can upload photos of test strips, and the system uses Google's Gemini AI to extract chemical readings (pH, chlorine, alkalinity, bromine, hardness). The dashboard displays current chemical levels with status indicators, historical trends through interactive charts, and maintains a test history log. The application supports multiple test strip brands for improved accuracy.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+
+**Framework & Build System**
+- React 18 with TypeScript for type-safe component development
+- Vite as the build tool and development server for fast hot module replacement
+- Wouter for lightweight client-side routing (Dashboard and Brands Management pages)
+- Single Page Application (SPA) architecture with client-side rendering
+
+**UI Component System**
+- Shadcn/ui component library built on Radix UI primitives for accessible, unstyled components
+- TailwindCSS for utility-first styling with custom design system
+- Design philosophy: Utility-focused dashboard inspired by MyFitnessPal and Grafana, prioritizing data clarity and functional efficiency
+- Responsive grid layout: mobile-first approach with breakpoints for tablet (md:) and desktop (lg:)
+- Custom color palette with pool-blue primary colors and status-based theming (green for optimal, amber for warning, red for critical)
+
+**State Management**
+- TanStack Query (React Query) for server state management, caching, and API synchronization
+- React Hook Form with Zod schema validation for form handling
+- No global state management library - leveraging React Query's caching and local component state
+
+**Data Visualization**
+- Recharts library for rendering trend charts and chemical level visualizations
+- Custom chart components wrapping Recharts primitives with application-specific styling
+
+### Backend Architecture
+
+**Server Framework**
+- Express.js running on Node.js with TypeScript
+- RESTful API design pattern
+- Middleware stack includes JSON parsing, URL encoding, request logging with duration tracking
+
+**API Endpoints Structure**
+- `GET /api/readings` - Fetch all test readings
+- `GET /api/readings/:id` - Fetch specific reading
+- `POST /api/analyze` - Upload and analyze test strip image
+- `GET /api/brands` - Fetch test strip brands
+- `POST /api/brands` - Create new brand
+- `PATCH /api/brands/:id` - Update brand
+- `DELETE /api/brands/:id` - Delete brand
+
+**File Upload Handling**
+- Multer middleware for multipart/form-data processing
+- 10MB file size limit enforced
+- In-memory storage strategy (memoryStorage)
+- Image MIME type validation
+
+**AI Integration**
+- Google Gemini AI (gemini-2.5-flash or gemini-2.5-pro series) for image analysis
+- Structured JSON output from vision model
+- Brand-specific context injection to improve color matching accuracy
+- Confidence scoring for analysis reliability
+
+### Data Storage Solutions
+
+**Database Strategy**
+- Drizzle ORM as the type-safe database toolkit
+- PostgreSQL as the primary database (via @neondatabase/serverless driver)
+- Schema-first approach with migrations managed in `/migrations` directory
+
+**Schema Design**
+- `test_strip_brands` table: Stores test strip product information (id, name, manufacturer, description, color_ranges)
+- `test_readings` table: Chemical readings with timestamp, image URL, brand reference, and measurement values (pH, chlorine, alkalinity, bromine, hardness, confidence score)
+- UUID primary keys generated via `gen_random_uuid()`
+- Optional brand association for readings (nullable foreign key relationship)
+
+**Development Storage**
+- In-memory storage implementation (`MemStorage` class) for development/testing
+- Implements `IStorage` interface for consistent API across storage backends
+- Pre-populated with default test strip brands (AquaChek, JNW Direct)
+
+### External Dependencies
+
+**Third-Party Services**
+- **Google Gemini AI API**: Vision model for test strip image analysis and chemical reading extraction
+- **Neon Database**: Serverless PostgreSQL hosting via @neondatabase/serverless driver
+- **Google Fonts**: Inter and Roboto font families loaded from Google Fonts CDN
+
+**Key NPM Packages**
+- **UI Libraries**: @radix-ui/* components, shadcn/ui patterns, recharts for visualization
+- **Form & Validation**: react-hook-form, @hookform/resolvers, zod for schema validation
+- **State Management**: @tanstack/react-query for server state
+- **Database**: drizzle-orm, drizzle-kit, @neondatabase/serverless
+- **AI Integration**: @google/genai for Gemini API access
+- **Utilities**: date-fns for date formatting, clsx/tailwind-merge for className management, class-variance-authority for component variants
+
+**Development Tools**
+- Replit-specific plugins for development banner, error overlay, and cartographer
+- TypeScript for type safety across full stack
+- ESBuild for server bundling in production builds
