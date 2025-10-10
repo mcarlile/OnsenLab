@@ -22,9 +22,12 @@ export default function Dashboard() {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async (file: File) => {
+    mutationFn: async ({ file, brandId }: { file: File; brandId?: string }) => {
       const formData = new FormData();
       formData.append('image', file);
+      if (brandId && brandId !== 'none') {
+        formData.append('brandId', brandId);
+      }
       
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -56,8 +59,8 @@ export default function Dashboard() {
     },
   });
 
-  const handleUpload = (file: File) => {
-    analyzeMutation.mutate(file);
+  const handleUpload = (file: File, brandId?: string) => {
+    analyzeMutation.mutate({ file, brandId });
   };
 
   const latestReading = readings[0];
