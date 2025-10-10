@@ -2,11 +2,21 @@
 
 ## Overview
 
-A web application for monitoring hot tub water chemistry through AI-powered test strip image analysis. Users can upload photos of test strips, and the system uses Google's Gemini AI to extract chemical readings (pH, chlorine, alkalinity, bromine, hardness). The dashboard displays current chemical levels with status indicators, historical trends through interactive charts, and maintains a test history log. The application supports multiple test strip brands for improved accuracy.
+A web application for monitoring hot tub water chemistry through AI-powered test strip image analysis. Users can capture photos using their device camera or upload existing photos from their gallery. The system uses Google's Gemini AI to extract chemical readings (pH, chlorine, alkalinity, bromine, hardness) with optional test strip brand selection for improved accuracy. The dashboard displays current chemical levels with status indicators, historical trends through interactive charts, and maintains a test history log. Users can manage their test strip brands through a dedicated brands management page.
 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
+
+## Recent Changes
+
+### October 10, 2025
+- **Enhanced Upload Flow**: Added dual upload options supporting both camera capture and gallery upload using HTML5 file input attributes
+- **Test Strip Brand Management**: Created dedicated brands management page (/brands) with full CRUD operations for test strip brands
+- **AI Accuracy Improvements**: Integrated brand selection into upload flow to provide context-specific information to Gemini AI for improved reading accuracy
+- **Schema Updates**: Added `test_strip_brands` table and `brandId` reference in `test_readings` for brand association
+- **UI Enhancements**: Upload dialog now includes brand selector dropdown with link to brand management page
+- **Default Brands**: Pre-loaded AquaChek 6-in-1 and JNW Direct 7-Way test strips as default brands
 
 ## System Architecture
 
@@ -50,11 +60,13 @@ Preferred communication style: Simple, everyday language.
 - `PATCH /api/brands/:id` - Update brand
 - `DELETE /api/brands/:id` - Delete brand
 
-**File Upload Handling**
+**Image Capture & Upload**
+- Dual upload methods: camera capture (HTML5 `capture="environment"`) and gallery upload
 - Multer middleware for multipart/form-data processing
 - 10MB file size limit enforced
 - In-memory storage strategy (memoryStorage)
 - Image MIME type validation
+- Optional test strip brand selection for context-aware AI analysis
 
 **AI Integration**
 - Google Gemini AI (gemini-2.5-flash or gemini-2.5-pro series) for image analysis
