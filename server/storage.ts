@@ -1,37 +1,38 @@
-import { type User, type InsertUser } from "@shared/schema";
+import { type TestReading, type InsertTestReading } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getTestReading(id: string): Promise<TestReading | undefined>;
+  getAllTestReadings(): Promise<TestReading[]>;
+  createTestReading(reading: InsertTestReading): Promise<TestReading>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private testReadings: Map<string, TestReading>;
 
   constructor() {
-    this.users = new Map();
+    this.testReadings = new Map();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getTestReading(id: string): Promise<TestReading | undefined> {
+    return this.testReadings.get(id);
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+  async getAllTestReadings(): Promise<TestReading[]> {
+    return Array.from(this.testReadings.values()).sort(
+      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async createTestReading(insertReading: InsertTestReading): Promise<TestReading> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const reading: TestReading = { 
+      ...insertReading, 
+      id,
+      timestamp: new Date()
+    };
+    this.testReadings.set(id, reading);
+    return reading;
   }
 }
 
