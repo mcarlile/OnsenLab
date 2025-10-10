@@ -27,9 +27,15 @@ export class MemStorage implements IStorage {
   async createTestReading(insertReading: InsertTestReading): Promise<TestReading> {
     const id = randomUUID();
     const reading: TestReading = { 
-      ...insertReading, 
       id,
-      timestamp: new Date()
+      timestamp: new Date(),
+      imageUrl: insertReading.imageUrl ?? null,
+      pH: insertReading.pH ?? null,
+      chlorine: insertReading.chlorine ?? null,
+      alkalinity: insertReading.alkalinity ?? null,
+      bromine: insertReading.bromine ?? null,
+      hardness: insertReading.hardness ?? null,
+      confidence: insertReading.confidence ?? null,
     };
     this.testReadings.set(id, reading);
     return reading;

@@ -10,7 +10,7 @@ interface TestReading {
   pH: number | null;
   chlorine: number | null;
   alkalinity: number | null;
-  confidence?: number;
+  confidence?: number | null;
 }
 
 interface TestHistoryProps {
