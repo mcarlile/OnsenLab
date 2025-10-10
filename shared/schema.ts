@@ -7,7 +7,9 @@ export const testStripBrands = pgTable("test_strip_brands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   manufacturer: text("manufacturer").notNull(),
+  sku: text("sku"),
   description: text("description"),
+  imageUrl: text("image_url"),
   colorRanges: text("color_ranges"),
 });
 

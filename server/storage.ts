@@ -29,14 +29,18 @@ export class MemStorage implements IStorage {
         id: randomUUID(),
         name: "6-in-1 Test Strips",
         manufacturer: "AquaChek",
+        sku: "AQ-6IN1",
         description: "Tests pH, Total Chlorine, Total Bromine, Total Alkalinity, Total Hardness, and Cyanuric Acid",
+        imageUrl: null,
         colorRanges: null,
       },
       {
         id: randomUUID(),
         name: "7-Way Test Strips",
         manufacturer: "JNW Direct",
+        sku: "JNW-7WAY",
         description: "Tests pH, Free Chlorine, Total Chlorine, Bromine, Alkalinity, Hardness, and Cyanuric Acid",
+        imageUrl: null,
         colorRanges: null,
       },
     ];
@@ -92,7 +96,9 @@ export class MemStorage implements IStorage {
       id,
       name: insertBrand.name,
       manufacturer: insertBrand.manufacturer,
+      sku: insertBrand.sku ?? null,
       description: insertBrand.description ?? null,
+      imageUrl: insertBrand.imageUrl ?? null,
       colorRanges: insertBrand.colorRanges ?? null,
     };
     this.testStripBrands.set(id, brand);
