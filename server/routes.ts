@@ -99,13 +99,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
           error: "Invalid data format", 
-          details: error.errors 
+          details: "The image analysis returned unexpected data. Please try again." 
         });
       }
+
+      const errorMsg = error instanceof Error ? error.message : "Unknown error";
+      const isQuota = errorMsg.toLowerCase().includes("rate limit") || errorMsg.toLowerCase().includes("quota");
       
-      res.status(500).json({ 
+      res.status(isQuota ? 429 : 500).json({ 
         error: "Failed to analyze test strip", 
-        details: error instanceof Error ? error.message : "Unknown error"
+        details: errorMsg
       });
     }
   });

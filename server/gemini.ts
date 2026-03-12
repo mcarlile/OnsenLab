@@ -49,24 +49,54 @@ export interface ImageData {
 const parameterReadingSchema = {
   type: "object" as const,
   properties: {
-    value: { type: ["number", "null"] as const },
-    confidence: { type: ["number", "null"] as const },
-    interval: { type: ["number", "null"] as const },
+    value: { type: "number" as const, nullable: true },
+    confidence: { type: "number" as const, nullable: true },
+    interval: { type: "number" as const, nullable: true },
   },
-  required: ["value", "confidence", "interval"],
 };
+
+function isRetryableError(error: unknown): boolean {
+  const msg = String(error).toLowerCase();
+  return msg.includes("resource_exhausted") ||
+    msg.includes("429") ||
+    msg.includes("quota") ||
+    msg.includes("rate limit") ||
+    msg.includes("too many requests") ||
+    msg.includes("temporarily unavailable") ||
+    msg.includes("503");
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export function classifyGeminiError(error: unknown): { message: string; isQuota: boolean } {
+  const msg = String(error).toLowerCase();
+  if (msg.includes("resource_exhausted") || msg.includes("quota") || msg.includes("429")) {
+    return {
+      message: "AI service temporarily unavailable due to rate limits. Please wait a moment and try again.",
+      isQuota: true,
+    };
+  }
+  if (msg.includes("invalid") && msg.includes("api key")) {
+    return { message: "AI service configuration error. Please check the API key.", isQuota: false };
+  }
+  if (msg.includes("503") || msg.includes("unavailable")) {
+    return { message: "AI service is temporarily unavailable. Please try again shortly.", isQuota: false };
+  }
+  return { message: "Failed to analyze the test strip image. Please try again with a clearer photo.", isQuota: false };
+}
 
 export async function analyzeTestStrip(
   images: ImageData[],
   brandInfo?: BrandInfo | null
 ): Promise<ChemicalReadings> {
-  try {
-    const brandContext = brandInfo 
-      ? `\n\nThe test strip is a ${brandInfo.manufacturer} ${brandInfo.name}.${brandInfo.description ? ` ${brandInfo.description}` : ''} Use this information to help identify the correct color ranges and parameters.`
-      : '';
+  const brandContext = brandInfo 
+    ? `\n\nThe test strip is a ${brandInfo.manufacturer} ${brandInfo.name}.${brandInfo.description ? ` ${brandInfo.description}` : ''} Use this information to help identify the correct color ranges and parameters.`
+    : '';
 
-    const multiImageNote = images.length > 1
-      ? `\n\nYou are being provided multiple images of the SAME test strip and its color key.
+  const multiImageNote = images.length > 1
+    ? `\n\nYou are being provided multiple images of the SAME test strip and its color key.
 The user took two photos because the strip is long and the bottle key is cylindrical.
 
 IMPORTANT MULTI-IMAGE RULES:
@@ -75,9 +105,9 @@ IMPORTANT MULTI-IMAGE RULES:
 - FOR EACH PAD: Match it to the corresponding color scale found WITHIN THE SAME IMAGE to ensure lighting and color temperature consistency.
 - DE-DUPLICATION: If a pad appears in both images, return only the result with the higher confidence score.
 - AGNOSTICISM: Do not use pre-known brand colors. Rely entirely on the key provided in the photos.`
-      : '';
+    : '';
 
-    const systemPrompt = `ACT AS: A water chemistry expert and computer vision analyst.
+  const systemPrompt = `ACT AS: A water chemistry expert and computer vision analyst.
 Analyze the test strip in the provided image(s) and extract chemical readings.${brandContext}${multiImageNote}
 
 Look for these measurements:
@@ -100,85 +130,114 @@ Return a JSON object with:
 
 Be conservative with confidence scores - only give high confidence when colors are clearly visible, well-lit, and closely match a specific color block on the key.`;
 
-    const imageParts = images.map(img => ({
-      inlineData: {
-        data: img.base64,
-        mimeType: img.mimeType,
-      },
-    }));
+  const imageParts = images.map(img => ({
+    inlineData: {
+      data: img.base64,
+      mimeType: img.mimeType,
+    },
+  }));
 
-    const result = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "object",
-          properties: {
-            parameters: {
-              type: "object",
-              properties: {
-                pH: parameterReadingSchema,
-                chlorine: parameterReadingSchema,
-                alkalinity: parameterReadingSchema,
-                bromine: parameterReadingSchema,
-                hardness: parameterReadingSchema,
+  const MAX_RETRIES = 2;
+  const RETRY_DELAYS = [1000, 2000];
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await ai.models.generateContent({
+        model: "gemini-2.5-pro",
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "object",
+            properties: {
+              parameters: {
+                type: "object",
+                properties: {
+                  pH: parameterReadingSchema,
+                  chlorine: parameterReadingSchema,
+                  alkalinity: parameterReadingSchema,
+                  bromine: parameterReadingSchema,
+                  hardness: parameterReadingSchema,
+                },
+                required: ["pH", "chlorine", "alkalinity", "bromine", "hardness"],
               },
-              required: ["pH", "chlorine", "alkalinity", "bromine", "hardness"],
+              confidence: { type: "number" },
             },
-            confidence: { type: "number" },
+            required: ["parameters", "confidence"],
           },
-          required: ["parameters", "confidence"],
         },
-      },
-      contents: [
-        ...imageParts,
-        "Analyze this test strip image and extract all chemical readings with per-parameter confidence scores and margins of error.",
-      ],
-    });
+        contents: [
+          ...imageParts,
+          "Analyze this test strip image and extract all chemical readings with per-parameter confidence scores and margins of error.",
+        ],
+      });
 
-    const rawJson = result.text;
+      const rawJson = result.text;
 
-    if (rawJson) {
+      if (!rawJson) {
+        throw new Error("Empty response from Gemini");
+      }
+
       const raw = JSON.parse(rawJson) as {
-        parameters: Record<string, { value: number | null; confidence: number | null; interval: number | null }>;
+        parameters: Record<string, { value?: number | null; confidence?: number | null; interval?: number | null }>;
         confidence: number;
       };
 
       const p = raw.parameters;
+      const param = (key: string) => ({
+        value: p[key]?.value ?? null,
+        confidence: p[key]?.confidence ?? null,
+        interval: p[key]?.interval ?? null,
+      });
+
+      const pH = param("pH");
+      const chlorine = param("chlorine");
+      const alkalinity = param("alkalinity");
+      const bromine = param("bromine");
+      const hardness = param("hardness");
 
       const data: ChemicalReadings = {
-        pH: p.pH.value,
-        chlorine: p.chlorine.value,
-        alkalinity: p.alkalinity.value,
-        bromine: p.bromine.value,
-        hardness: p.hardness.value,
+        pH: pH.value,
+        chlorine: chlorine.value,
+        alkalinity: alkalinity.value,
+        bromine: bromine.value,
+        hardness: hardness.value,
         confidence: raw.confidence,
-        pHConfidence: p.pH.confidence,
-        chlorineConfidence: p.chlorine.confidence,
-        alkalinityConfidence: p.alkalinity.confidence,
-        bromineConfidence: p.bromine.confidence,
-        hardnessConfidence: p.hardness.confidence,
-        pHInterval: p.pH.interval,
-        chlorineInterval: p.chlorine.interval,
-        alkalinityInterval: p.alkalinity.interval,
-        bromineInterval: p.bromine.interval,
-        hardnessInterval: p.hardness.interval,
-        parameters: p,
+        pHConfidence: pH.confidence,
+        chlorineConfidence: chlorine.confidence,
+        alkalinityConfidence: alkalinity.confidence,
+        bromineConfidence: bromine.confidence,
+        hardnessConfidence: hardness.confidence,
+        pHInterval: pH.interval,
+        chlorineInterval: chlorine.interval,
+        alkalinityInterval: alkalinity.interval,
+        bromineInterval: bromine.interval,
+        hardnessInterval: hardness.interval,
+        parameters: { pH, chlorine, alkalinity, bromine, hardness },
         intervals: {
-          pH: p.pH.interval,
-          chlorine: p.chlorine.interval,
-          alkalinity: p.alkalinity.interval,
-          bromine: p.bromine.interval,
-          hardness: p.hardness.interval,
+          pH: pH.interval,
+          chlorine: chlorine.interval,
+          alkalinity: alkalinity.interval,
+          bromine: bromine.interval,
+          hardness: hardness.interval,
         },
       };
       return data;
-    } else {
-      throw new Error("Empty response from Gemini");
+    } catch (error) {
+      lastError = error;
+      console.error(`Gemini attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`, error);
+
+      if (attempt < MAX_RETRIES && isRetryableError(error)) {
+        console.log(`Retrying in ${RETRY_DELAYS[attempt]}ms...`);
+        await sleep(RETRY_DELAYS[attempt]);
+        continue;
+      }
+
+      break;
     }
-  } catch (error) {
-    console.error("Failed to analyze test strip:", error);
-    throw new Error(`Failed to analyze test strip: ${error}`);
   }
+
+  const classified = classifyGeminiError(lastError);
+  throw new Error(classified.message);
 }
