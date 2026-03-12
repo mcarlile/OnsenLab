@@ -105,6 +105,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get readings for a specific brand
+  app.get("/api/brands/:id/readings", async (req, res) => {
+    try {
+      const readings = await storage.getReadingsByBrandId(req.params.id);
+      res.json(readings);
+    } catch (error) {
+      console.error("Failed to fetch brand readings:", error);
+      res.status(500).json({ error: "Failed to fetch brand readings" });
+    }
+  });
+
+  // Get a single brand
+  app.get("/api/brands/:id", async (req, res) => {
+    try {
+      const brand = await storage.getTestStripBrand(req.params.id);
+      if (!brand) return res.status(404).json({ error: "Brand not found" });
+      res.json(brand);
+    } catch (error) {
+      console.error("Failed to fetch brand:", error);
+      res.status(500).json({ error: "Failed to fetch brand" });
+    }
+  });
+
   // Get all test strip brands
   app.get("/api/brands", async (req, res) => {
     try {

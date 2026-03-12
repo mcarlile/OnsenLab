@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { Plus, Pencil, Trash2, ArrowLeft, Upload, X } from "lucide-react";
+import { Plus, Pencil, Trash2, ArrowLeft, Upload, X, ChevronRight } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertTestStripBrandSchema, type TestStripBrand } from "@shared/schema";
@@ -431,6 +431,14 @@ export default function BrandsManagement() {
                       )}
                     </div>
                     <div className="flex gap-1 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setLocation(`/brands/${brand.id}`)}
+                        data-testid={`button-detail-${brand.id}`}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

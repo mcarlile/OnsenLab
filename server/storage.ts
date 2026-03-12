@@ -5,6 +5,7 @@ export interface IStorage {
   // Test readings
   getTestReading(id: string): Promise<TestReading | undefined>;
   getAllTestReadings(): Promise<TestReading[]>;
+  getReadingsByBrandId(brandId: string): Promise<TestReading[]>;
   createTestReading(reading: InsertTestReading): Promise<TestReading>;
   
   // Test strip brands
@@ -59,6 +60,12 @@ export class MemStorage implements IStorage {
     return Array.from(this.testReadings.values()).sort(
       (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
     );
+  }
+
+  async getReadingsByBrandId(brandId: string): Promise<TestReading[]> {
+    return Array.from(this.testReadings.values())
+      .filter(r => r.brandId === brandId)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   async createTestReading(insertReading: InsertTestReading): Promise<TestReading> {
