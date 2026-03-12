@@ -8,6 +8,12 @@ import { GoogleGenAI } from "@google/genai";
 // This API key is from Gemini Developer API Key, not vertex AI API Key
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
+export interface ParameterReading {
+  value: number | null;
+  confidence: number | null;
+  interval: number | null;
+}
+
 export interface ChemicalReadings {
   pH: number | null;
   chlorine: number | null;
@@ -25,6 +31,7 @@ export interface ChemicalReadings {
   alkalinityInterval: number | null;
   bromineInterval: number | null;
   hardnessInterval: number | null;
+  parameters: Record<string, ParameterReading>;
 }
 
 interface BrandInfo {
@@ -151,7 +158,17 @@ Be conservative with confidence scores - only give high confidence when colors a
     const rawJson = result.text;
 
     if (rawJson) {
-      const data: ChemicalReadings = JSON.parse(rawJson);
+      const raw = JSON.parse(rawJson);
+      const data: ChemicalReadings = {
+        ...raw,
+        parameters: {
+          pH: { value: raw.pH, confidence: raw.pHConfidence, interval: raw.pHInterval },
+          chlorine: { value: raw.chlorine, confidence: raw.chlorineConfidence, interval: raw.chlorineInterval },
+          alkalinity: { value: raw.alkalinity, confidence: raw.alkalinityConfidence, interval: raw.alkalinityInterval },
+          bromine: { value: raw.bromine, confidence: raw.bromineConfidence, interval: raw.bromineInterval },
+          hardness: { value: raw.hardness, confidence: raw.hardnessConfidence, interval: raw.hardnessInterval },
+        },
+      };
       return data;
     } else {
       throw new Error("Empty response from Gemini");

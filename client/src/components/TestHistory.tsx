@@ -26,6 +26,10 @@ interface TestHistoryProps {
   onViewDetails?: (id: string) => void;
 }
 
+function isLowConf(c?: number | null): boolean {
+  return c !== null && c !== undefined && c < 0.70;
+}
+
 function formatWithInterval(value: number | null, interval?: number | null, decimals = 1) {
   if (value === null) return "--";
   const v = value.toFixed(decimals);
@@ -36,15 +40,14 @@ function formatWithInterval(value: number | null, interval?: number | null, deci
   return v;
 }
 
-function hasLowConfidence(reading: TestReading): boolean {
-  const confidences = [
+function hasAnyLowConfidence(reading: TestReading): boolean {
+  return [
     reading.pHConfidence,
     reading.chlorineConfidence,
     reading.alkalinityConfidence,
     reading.bromineConfidence,
     reading.hardnessConfidence,
-  ];
-  return confidences.some(c => c !== null && c !== undefined && c < 0.70);
+  ].some(c => isLowConf(c));
 }
 
 export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
@@ -80,7 +83,10 @@ export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
             </thead>
             <tbody>
               {readings.map((reading, index) => {
-                const lowConf = hasLowConfidence(reading);
+                const anyLow = hasAnyLowConfidence(reading);
+                const phLow = isLowConf(reading.pHConfidence);
+                const clLow = isLowConf(reading.chlorineConfidence);
+                const alkLow = isLowConf(reading.alkalinityConfidence);
                 return (
                   <tr 
                     key={reading.id} 
@@ -93,14 +99,17 @@ export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
                         <span className="text-muted-foreground text-xs">{format(reading.timestamp, "HH:mm")}</span>
                       </div>
                     </td>
-                    <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums">
+                    <td className={`text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums ${phLow ? "text-amber-600 dark:text-amber-400" : ""}`}>
                       {formatWithInterval(reading.pH, reading.pHInterval)}
+                      {phLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                     </td>
-                    <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden sm:table-cell tabular-nums">
+                    <td className={`text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden sm:table-cell tabular-nums ${clLow ? "text-amber-600 dark:text-amber-400" : ""}`}>
                       {formatWithInterval(reading.chlorine, reading.chlorineInterval)}
+                      {clLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                     </td>
-                    <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden md:table-cell tabular-nums">
+                    <td className={`text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden md:table-cell tabular-nums ${alkLow ? "text-amber-600 dark:text-amber-400" : ""}`}>
                       {formatWithInterval(reading.alkalinity, reading.alkalinityInterval, 0)}
+                      {alkLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                     </td>
                     <td className="text-center py-3 px-2 sm:px-3 hidden lg:table-cell">
                       <div className="flex items-center justify-center gap-1">
@@ -109,7 +118,7 @@ export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
                             {Math.round(reading.confidence * 100)}%
                           </Badge>
                         )}
-                        {lowConf && (
+                        {anyLow && (
                           <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
                         )}
                       </div>

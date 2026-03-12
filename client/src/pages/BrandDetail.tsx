@@ -8,6 +8,10 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import type { TestStripBrand, TestReading } from "@shared/schema";
 
+function isLowConf(c: number | null | undefined): boolean {
+  return c !== null && c !== undefined && c < 0.70;
+}
+
 function statusBadge(value: number | null, type: "ph" | "chlorine" | "alkalinity" | "bromine" | "hardness") {
   if (value === null) return <span className="text-muted-foreground text-sm">&mdash;</span>;
 
@@ -173,6 +177,12 @@ export default function BrandDetail() {
                           reading.hardnessConfidence,
                         ].some(c => c !== null && c !== undefined && c < 0.70);
 
+                        const phLow = isLowConf(reading.pHConfidence);
+                        const clLow = isLowConf(reading.chlorineConfidence);
+                        const alkLow = isLowConf(reading.alkalinityConfidence);
+                        const brLow = isLowConf(reading.bromineConfidence);
+                        const hdLow = isLowConf(reading.hardnessConfidence);
+
                         return (
                           <TableRow key={reading.id} data-testid={`row-reading-${reading.id}`}>
                             <TableCell className="whitespace-nowrap text-sm">
@@ -185,22 +195,27 @@ export default function BrandDetail() {
                             <TableCell className="text-center">
                               {statusBadge(reading.pH, "ph")}
                               {formatInterval(reading.pHInterval)}
+                              {phLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                             </TableCell>
                             <TableCell className="text-center">
                               {statusBadge(reading.chlorine, "chlorine")}
                               {formatInterval(reading.chlorineInterval)}
+                              {clLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                             </TableCell>
                             <TableCell className="text-center">
                               {statusBadge(reading.alkalinity, "alkalinity")}
                               {formatInterval(reading.alkalinityInterval)}
+                              {alkLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                             </TableCell>
                             <TableCell className="text-center">
                               {statusBadge(reading.bromine, "bromine")}
                               {formatInterval(reading.bromineInterval)}
+                              {brLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                             </TableCell>
                             <TableCell className="text-center">
                               {statusBadge(reading.hardness, "hardness")}
                               {formatInterval(reading.hardnessInterval)}
+                              {hdLow && <AlertTriangle className="inline-block h-3 w-3 ml-0.5 text-amber-500 align-text-top" />}
                             </TableCell>
                             <TableCell className="text-center">
                               <div className="flex items-center justify-center gap-1">
