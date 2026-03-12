@@ -10,54 +10,159 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, Upload, Settings } from "lucide-react";
+import { Camera, Upload, Settings, X, FlaskConical } from "lucide-react";
 import { type TestStripBrand } from "@shared/schema";
 import { Link } from "wouter";
 
 interface UploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpload: (file: File, brandId?: string) => void;
+  onUpload: (files: File[], brandId?: string) => void;
   isAnalyzing: boolean;
+}
+
+function ImageSlot({
+  label,
+  file,
+  onFileSelect,
+  onRemove,
+  disabled,
+  slotIndex,
+}: {
+  label: string;
+  file: File | null;
+  onFileSelect: (file: File) => void;
+  onRemove: () => void;
+  disabled: boolean;
+  slotIndex: number;
+}) {
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      onFileSelect(selected);
+      const url = URL.createObjectURL(selected);
+      setPreview(url);
+    }
+    e.target.value = "";
+  };
+
+  const handleRemove = () => {
+    if (preview) {
+      URL.revokeObjectURL(preview);
+      setPreview(null);
+    }
+    onRemove();
+  };
+
+  if (file && preview) {
+    return (
+      <div className="relative rounded-md overflow-visible border border-border">
+        <img
+          src={preview}
+          alt={`Selected image ${slotIndex + 1}`}
+          className="w-full h-32 object-cover rounded-md"
+          data-testid={`img-preview-${slotIndex}`}
+        />
+        <Button
+          variant="destructive"
+          size="icon"
+          className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+          onClick={handleRemove}
+          disabled={disabled}
+          data-testid={`button-remove-image-${slotIndex}`}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col gap-1"
+          onClick={() => cameraRef.current?.click()}
+          disabled={disabled}
+          data-testid={`button-camera-${slotIndex}`}
+        >
+          <Camera className="h-6 w-6" />
+          <span className="text-xs">Take Photo</span>
+        </Button>
+        <Button
+          variant="outline"
+          className="h-20 flex flex-col gap-1"
+          onClick={() => galleryRef.current?.click()}
+          disabled={disabled}
+          data-testid={`button-gallery-${slotIndex}`}
+        >
+          <Upload className="h-6 w-6" />
+          <span className="text-xs">Gallery</span>
+        </Button>
+      </div>
+      <input
+        ref={galleryRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleChange}
+        data-testid={`input-gallery-${slotIndex}`}
+      />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleChange}
+        data-testid={`input-camera-${slotIndex}`}
+      />
+    </div>
+  );
 }
 
 export function UploadDialog({ open, onOpenChange, onUpload, isAnalyzing }: UploadDialogProps) {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [image1, setImage1] = useState<File | null>(null);
+  const [image2, setImage2] = useState<File | null>(null);
 
   const { data: brands = [] } = useQuery<TestStripBrand[]>({
     queryKey: ['/api/brands'],
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onUpload(file, selectedBrand || undefined);
+  const handleAnalyze = () => {
+    if (!image1) return;
+    const files = image2 ? [image1, image2] : [image1];
+    onUpload(files, selectedBrand || undefined);
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      setImage1(null);
+      setImage2(null);
     }
-  };
-
-  const handleGalleryClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleCameraClick = () => {
-    cameraInputRef.current?.click();
+    onOpenChange(nextOpen);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Upload Test Strip Photo</DialogTitle>
           <DialogDescription>
-            Select your test strip brand and choose how to capture the image.
+            Capture one or two photos of your test strip. If the strip is too long for one shot, add a second photo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-1">
               <Label htmlFor="brand-select">Test Strip Brand (Optional)</Label>
               <Link href="/brands">
                 <Button variant="ghost" size="sm" className="h-7 text-xs" data-testid="link-manage-brands">
@@ -85,28 +190,24 @@ export function UploadDialog({ open, onOpenChange, onUpload, isAnalyzing }: Uplo
           </div>
 
           <div className="space-y-3">
-            <Label>Capture Method</Label>
+            <Label>Photos</Label>
             <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                className="h-24 flex flex-col gap-2"
-                onClick={handleCameraClick}
+              <ImageSlot
+                label="Photo 1 (required)"
+                file={image1}
+                onFileSelect={setImage1}
+                onRemove={() => setImage1(null)}
                 disabled={isAnalyzing}
-                data-testid="button-camera"
-              >
-                <Camera className="h-8 w-8" />
-                <span>Take Photo</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="h-24 flex flex-col gap-2"
-                onClick={handleGalleryClick}
+                slotIndex={0}
+              />
+              <ImageSlot
+                label="Photo 2 (optional)"
+                file={image2}
+                onFileSelect={setImage2}
+                onRemove={() => setImage2(null)}
                 disabled={isAnalyzing}
-                data-testid="button-gallery"
-              >
-                <Upload className="h-8 w-8" />
-                <span>Choose from Gallery</span>
-              </Button>
+                slotIndex={1}
+              />
             </div>
           </div>
 
@@ -116,25 +217,17 @@ export function UploadDialog({ open, onOpenChange, onUpload, isAnalyzing }: Uplo
               <span className="ml-3 text-sm text-muted-foreground">Analyzing test strip...</span>
             </div>
           )}
-        </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleFileSelect}
-          data-testid="input-gallery"
-        />
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileSelect}
-          data-testid="input-camera"
-        />
+          <Button
+            className="w-full"
+            onClick={handleAnalyze}
+            disabled={!image1 || isAnalyzing}
+            data-testid="button-analyze"
+          >
+            <FlaskConical className="h-4 w-4 mr-2" />
+            Analyze Strip
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

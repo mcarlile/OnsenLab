@@ -23,9 +23,13 @@ interface BrandInfo {
   description: string | null;
 }
 
+export interface ImageData {
+  base64: string;
+  mimeType: string;
+}
+
 export async function analyzeTestStrip(
-  imageBase64: string, 
-  mimeType: string, 
+  images: ImageData[],
   brandInfo?: BrandInfo | null
 ): Promise<ChemicalReadings> {
   try {
@@ -33,8 +37,12 @@ export async function analyzeTestStrip(
       ? `\n\nThe test strip is a ${brandInfo.manufacturer} ${brandInfo.name}.${brandInfo.description ? ` ${brandInfo.description}` : ''} Use this information to help identify the correct color ranges and parameters.`
       : '';
 
+    const multiImageNote = images.length > 1
+      ? '\n\nYou are being provided multiple images of the SAME test strip. The strip may have been too long to capture in a single photo, so each image shows different pads/sections. Combine readings from all images to produce a single complete set of results.'
+      : '';
+
     const systemPrompt = `You are an expert at analyzing hot tub and pool test strips from images.
-Analyze the test strip in the image and extract the chemical readings.${brandContext}
+Analyze the test strip in the image and extract the chemical readings.${brandContext}${multiImageNote}
 
 Look for these measurements:
 - pH (typically 6.0-8.4 range)
@@ -56,6 +64,13 @@ Return a JSON object with these exact fields:
 If you cannot detect a specific reading, set it to null.
 Be conservative with your confidence score - only give high confidence when the colors are clearly visible and match the color chart.`;
 
+    const imageParts = images.map(img => ({
+      inlineData: {
+        data: img.base64,
+        mimeType: img.mimeType,
+      },
+    }));
+
     const result = await ai.models.generateContent({
       model: "gemini-2.5-pro",
       config: {
@@ -75,12 +90,7 @@ Be conservative with your confidence score - only give high confidence when the 
         },
       },
       contents: [
-        {
-          inlineData: {
-            data: imageBase64,
-            mimeType: mimeType,
-          },
-        },
+        ...imageParts,
         "Analyze this test strip image and extract all chemical readings you can detect.",
       ],
     });

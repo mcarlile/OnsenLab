@@ -21,9 +21,11 @@ export default function Dashboard() {
   });
 
   const analyzeMutation = useMutation({
-    mutationFn: async ({ file, brandId }: { file: File; brandId?: string }) => {
+    mutationFn: async ({ files, brandId }: { files: File[]; brandId?: string }) => {
       const formData = new FormData();
-      formData.append('image', file);
+      for (const file of files) {
+        formData.append('images', file);
+      }
       if (brandId && brandId !== 'none') {
         formData.append('brandId', brandId);
       }
@@ -57,8 +59,8 @@ export default function Dashboard() {
     },
   });
 
-  const handleUpload = (file: File, brandId?: string) => {
-    analyzeMutation.mutate({ file, brandId });
+  const handleUpload = (files: File[], brandId?: string) => {
+    analyzeMutation.mutate({ files, brandId });
   };
 
   const latestReading = readings[0];

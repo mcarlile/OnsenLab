@@ -44,10 +44,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload and analyze test strip image
-  app.post("/api/analyze", upload.single('image'), async (req, res) => {
+  // Upload and analyze test strip image(s)
+  app.post("/api/analyze", upload.array('images', 2), async (req, res) => {
     try {
-      if (!req.file) {
+      const files = req.files as Express.Multer.File[] | undefined;
+      if (!files || files.length === 0) {
         return res.status(400).json({ error: "No image file provided" });
       }
 
@@ -66,12 +67,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Convert image to base64
-      const imageBase64 = req.file.buffer.toString('base64');
-      const mimeType = req.file.mimetype;
+      // Convert images to base64
+      const images = files.map(file => ({
+        base64: file.buffer.toString('base64'),
+        mimeType: file.mimetype,
+      }));
 
       // Analyze with Gemini AI
-      const analysis = await analyzeTestStrip(imageBase64, mimeType, brandInfo);
+      const analysis = await analyzeTestStrip(images, brandInfo);
 
       // Validate and store the reading
       const readingData = insertTestReadingSchema.parse({
