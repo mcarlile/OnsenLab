@@ -128,7 +128,7 @@ export default function Dashboard() {
               <div className="text-sm">
                 <p className="font-medium text-amber-800 dark:text-amber-300">Low confidence readings</p>
                 <p className="text-amber-700 dark:text-amber-400 mt-0.5">
-                  The AI is less certain about {lowConfidenceParams.join(", ")}. Consider retaking the photo with better lighting or a clearer view of the color pads.
+                  Low confidence for {lowConfidenceParams.join(", ")} — try retaking in natural daylight.
                 </p>
               </div>
             </div>
@@ -249,6 +249,8 @@ export default function Dashboard() {
                 pHConfidence: r.pHConfidence,
                 chlorineConfidence: r.chlorineConfidence,
                 alkalinityConfidence: r.alkalinityConfidence,
+                bromineConfidence: r.bromineConfidence,
+                hardnessConfidence: r.hardnessConfidence,
               }))}
               onViewDetails={(id) => console.log('View details for:', id)}
             />

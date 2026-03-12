@@ -17,6 +17,8 @@ interface TestReading {
   pHConfidence?: number | null;
   chlorineConfidence?: number | null;
   alkalinityConfidence?: number | null;
+  bromineConfidence?: number | null;
+  hardnessConfidence?: number | null;
 }
 
 interface TestHistoryProps {
@@ -35,7 +37,13 @@ function formatWithInterval(value: number | null, interval?: number | null, deci
 }
 
 function hasLowConfidence(reading: TestReading): boolean {
-  const confidences = [reading.pHConfidence, reading.chlorineConfidence, reading.alkalinityConfidence];
+  const confidences = [
+    reading.pHConfidence,
+    reading.chlorineConfidence,
+    reading.alkalinityConfidence,
+    reading.bromineConfidence,
+    reading.hardnessConfidence,
+  ];
   return confidences.some(c => c !== null && c !== undefined && c < 0.70);
 }
 
