@@ -5,11 +5,10 @@ import { ChemicalLevelCard } from "@/components/ChemicalLevelCard";
 import { TrendChart } from "@/components/TrendChart";
 import { TestHistory } from "@/components/TestHistory";
 import { EmptyState } from "@/components/EmptyState";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Droplets, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import type { TestReading } from "@shared/schema";
 import { format } from "date-fns";
 
@@ -28,23 +27,22 @@ export default function Dashboard() {
       if (brandId && brandId !== 'none') {
         formData.append('brandId', brandId);
       }
-      
+
       const response = await fetch('/api/analyze', {
         method: 'POST',
         body: formData,
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.details || error.error || 'Failed to analyze image');
       }
-      
+
       return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/readings'] });
       setUploadDialogOpen(false);
-      
       toast({
         title: "Analysis Complete",
         description: `Test strip analyzed with ${Math.round((data.confidence || 0) * 100)}% confidence`,
@@ -66,7 +64,6 @@ export default function Dashboard() {
   const latestReading = readings[0];
   const hasData = readings.length > 0;
 
-  // Prepare trend data
   const getTrendData = (field: 'pH' | 'chlorine' | 'alkalinity') => {
     return readings
       .filter(r => r[field] !== null)
@@ -79,161 +76,140 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="rounded-lg bg-primary/10 p-1.5 sm:p-2 flex-shrink-0">
-                <Droplets className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold truncate">Hot Tub Monitor</h1>
-                <p className="text-xs text-muted-foreground hidden sm:block">AI-Powered Water Chemistry</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button
-                onClick={() => setUploadDialogOpen(true)}
-                size="sm"
-                className="sm:h-9"
-                data-testid="button-new-test"
-              >
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">New Test</span>
-              </Button>
-              <ThemeToggle />
-            </div>
-          </div>
+    <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-6 sm:mb-8">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold">Tests</h1>
+          {latestReading && (
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Last updated {format(new Date(latestReading.timestamp), "MMM d, h:mm a")}
+            </p>
+          )}
         </div>
-      </header>
+        <Button
+          onClick={() => setUploadDialogOpen(true)}
+          size="sm"
+          data-testid="button-new-test"
+        >
+          <Plus className="h-4 w-4 sm:mr-2" />
+          <span className="hidden sm:inline">New Test</span>
+        </Button>
+      </div>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-          </div>
-        ) : !hasData ? (
-          <EmptyState onUploadClick={() => setUploadDialogOpen(true)} />
-        ) : (
-          <div className="space-y-6 sm:space-y-8">
-            <section>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl sm:text-2xl font-semibold">Current Levels</h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Last updated: {format(new Date(latestReading.timestamp), "MMM d, h:mm a")}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                <ChemicalLevelCard
-                  name="pH"
-                  value={latestReading.pH}
-                  unit="pH"
-                  optimalMin={7.2}
-                  optimalMax={7.8}
-                  warningMin={7.0}
-                  warningMax={8.0}
-                />
-                <ChemicalLevelCard
-                  name="Chlorine"
-                  value={latestReading.chlorine}
-                  unit="ppm"
-                  optimalMin={1.0}
-                  optimalMax={3.0}
-                  warningMin={0.5}
-                  warningMax={5.0}
-                />
-                <ChemicalLevelCard
-                  name="Alkalinity"
-                  value={latestReading.alkalinity}
-                  unit="ppm"
-                  optimalMin={80}
-                  optimalMax={120}
-                  warningMin={60}
-                  warningMax={150}
-                />
-                <ChemicalLevelCard
-                  name="Bromine"
-                  value={latestReading.bromine}
-                  unit="ppm"
-                  optimalMin={2.0}
-                  optimalMax={4.0}
-                  warningMin={1.0}
-                  warningMax={6.0}
-                />
-                <ChemicalLevelCard
-                  name="Hardness"
-                  value={latestReading.hardness}
-                  unit="ppm"
-                  optimalMin={150}
-                  optimalMax={250}
-                  warningMin={100}
-                  warningMax={400}
-                />
-              </div>
-            </section>
-
-            {readings.length >= 2 && (
-              <section>
-                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Trends Over Time</h2>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  {getTrendData('pH').length >= 2 && (
-                    <TrendChart
-                      title="pH Trend"
-                      data={getTrendData('pH')}
-                      optimalMin={7.2}
-                      optimalMax={7.8}
-                      unit="pH"
-                      color="hsl(var(--chart-1))"
-                    />
-                  )}
-                  {getTrendData('chlorine').length >= 2 && (
-                    <TrendChart
-                      title="Chlorine Trend"
-                      data={getTrendData('chlorine')}
-                      optimalMin={1.0}
-                      optimalMax={3.0}
-                      unit="ppm"
-                      color="hsl(var(--chart-2))"
-                    />
-                  )}
-                  {getTrendData('alkalinity').length >= 2 && (
-                    <TrendChart
-                      title="Alkalinity Trend"
-                      data={getTrendData('alkalinity')}
-                      optimalMin={80}
-                      optimalMax={120}
-                      unit="ppm"
-                      color="hsl(var(--chart-3))"
-                    />
-                  )}
-                </div>
-              </section>
-            )}
-
-            <section>
-              <h2 className="text-xl sm:text-2xl font-semibold mb-4">Test History</h2>
-              <TestHistory 
-                readings={readings.map(r => ({
-                  id: r.id,
-                  timestamp: new Date(r.timestamp),
-                  pH: r.pH,
-                  chlorine: r.chlorine,
-                  alkalinity: r.alkalinity,
-                  confidence: r.confidence ?? undefined,
-                }))}
-                onViewDetails={(id) => console.log('View details for:', id)}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      ) : !hasData ? (
+        <EmptyState onUploadClick={() => setUploadDialogOpen(true)} />
+      ) : (
+        <div className="space-y-6 sm:space-y-8">
+          <section>
+            <h2 className="text-base sm:text-lg font-semibold mb-3">Current Levels</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <ChemicalLevelCard
+                name="pH"
+                value={latestReading.pH}
+                unit="pH"
+                optimalMin={7.2}
+                optimalMax={7.8}
+                warningMin={7.0}
+                warningMax={8.0}
               />
-            </section>
-          </div>
-        )}
-      </main>
+              <ChemicalLevelCard
+                name="Chlorine"
+                value={latestReading.chlorine}
+                unit="ppm"
+                optimalMin={1.0}
+                optimalMax={3.0}
+                warningMin={0.5}
+                warningMax={5.0}
+              />
+              <ChemicalLevelCard
+                name="Alkalinity"
+                value={latestReading.alkalinity}
+                unit="ppm"
+                optimalMin={80}
+                optimalMax={120}
+                warningMin={60}
+                warningMax={150}
+              />
+              <ChemicalLevelCard
+                name="Bromine"
+                value={latestReading.bromine}
+                unit="ppm"
+                optimalMin={2.0}
+                optimalMax={4.0}
+                warningMin={1.0}
+                warningMax={6.0}
+              />
+              <ChemicalLevelCard
+                name="Hardness"
+                value={latestReading.hardness}
+                unit="ppm"
+                optimalMin={150}
+                optimalMax={250}
+                warningMin={100}
+                warningMax={400}
+              />
+            </div>
+          </section>
 
-      <footer className="border-t mt-12 sm:mt-16">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-center text-xs sm:text-sm text-muted-foreground">
-          <p>Hot Tub Monitor - Keep your water chemistry balanced</p>
+          {readings.length >= 2 && (
+            <section>
+              <h2 className="text-base sm:text-lg font-semibold mb-3">Trends Over Time</h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                {getTrendData('pH').length >= 2 && (
+                  <TrendChart
+                    title="pH Trend"
+                    data={getTrendData('pH')}
+                    optimalMin={7.2}
+                    optimalMax={7.8}
+                    unit="pH"
+                    color="hsl(var(--chart-1))"
+                  />
+                )}
+                {getTrendData('chlorine').length >= 2 && (
+                  <TrendChart
+                    title="Chlorine Trend"
+                    data={getTrendData('chlorine')}
+                    optimalMin={1.0}
+                    optimalMax={3.0}
+                    unit="ppm"
+                    color="hsl(var(--chart-2))"
+                  />
+                )}
+                {getTrendData('alkalinity').length >= 2 && (
+                  <TrendChart
+                    title="Alkalinity Trend"
+                    data={getTrendData('alkalinity')}
+                    optimalMin={80}
+                    optimalMax={120}
+                    unit="ppm"
+                    color="hsl(var(--chart-3))"
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
+          <section>
+            <h2 className="text-base sm:text-lg font-semibold mb-3">Test History</h2>
+            <TestHistory
+              readings={readings.map(r => ({
+                id: r.id,
+                timestamp: new Date(r.timestamp),
+                pH: r.pH,
+                chlorine: r.chlorine,
+                alkalinity: r.alkalinity,
+                confidence: r.confidence ?? undefined,
+              }))}
+              onViewDetails={(id) => console.log('View details for:', id)}
+            />
+          </section>
         </div>
-      </footer>
+      )}
 
       <UploadDialog
         open={uploadDialogOpen}

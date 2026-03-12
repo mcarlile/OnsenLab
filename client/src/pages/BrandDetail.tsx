@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import type { TestStripBrand, TestReading } from "@shared/schema";
 
@@ -56,149 +56,144 @@ export default function BrandDetail() {
   const isLoading = brandLoading || readingsLoading;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setLocation('/brands')}
-                data-testid="button-back"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                {brand ? (
-                  <>
-                    <h1 className="text-lg sm:text-xl font-bold">{brand.name}</h1>
-                    <p className="text-xs text-muted-foreground">{brand.manufacturer}{brand.sku ? ` · ${brand.sku}` : ""}</p>
-                  </>
-                ) : (
-                  <h1 className="text-lg sm:text-xl font-bold">Brand Detail</h1>
-                )}
-              </div>
-            </div>
-            {brand && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLocation('/brands')}
-                data-testid="button-edit-brand"
-              >
-                <Pencil className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Edit Brand</span>
-              </Button>
-            )}
-          </div>
+    <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      {/* Page header */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setLocation('/brands')}
+          data-testid="button-back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          {brand ? (
+            <>
+              <h1 className="text-xl sm:text-2xl font-bold">{brand.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                {brand.manufacturer}{brand.sku ? ` · ${brand.sku}` : ""}
+              </p>
+            </>
+          ) : (
+            <h1 className="text-xl sm:text-2xl font-bold">Brand Detail</h1>
+          )}
         </div>
-      </header>
+      </div>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-          </div>
-        ) : !brand ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              Brand not found.
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      ) : !brand ? (
+        <Card>
+          <CardContent className="py-12 text-center text-muted-foreground">
+            Brand not found.
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Brand info */}
+          <Card data-testid="card-brand-info">
+            <CardContent className="pt-6">
+              <div className="flex gap-6 flex-col sm:flex-row">
+                {brand.imageUrl && (
+                  <img
+                    src={brand.imageUrl}
+                    alt={brand.name}
+                    className="w-full sm:w-40 h-40 object-cover rounded-md border flex-shrink-0"
+                    data-testid="img-brand"
+                  />
+                )}
+                <div className="space-y-1.5">
+                  <p className="text-sm">
+                    <span className="font-medium">Manufacturer:</span>{" "}
+                    <span className="text-muted-foreground">{brand.manufacturer}</span>
+                  </p>
+                  {brand.sku && (
+                    <p className="text-sm">
+                      <span className="font-medium">SKU:</span>{" "}
+                      <span className="text-muted-foreground">{brand.sku}</span>
+                    </p>
+                  )}
+                  {brand.description && (
+                    <p className="text-sm text-muted-foreground pt-1">{brand.description}</p>
+                  )}
+                  <p className="text-sm pt-1">
+                    <span className="font-medium">Total tests logged:</span>{" "}
+                    <span className="text-muted-foreground">{readings.length}</span>
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        ) : (
-          <>
-            {/* Brand info card */}
-            <Card data-testid="card-brand-info">
-              <CardContent className="pt-6">
-                <div className="flex gap-6 flex-col sm:flex-row">
-                  {brand.imageUrl && (
-                    <img
-                      src={brand.imageUrl}
-                      alt={brand.name}
-                      className="w-full sm:w-40 h-40 object-cover rounded-md border flex-shrink-0"
-                      data-testid="img-brand"
-                    />
-                  )}
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">Manufacturer:</span> {brand.manufacturer}
-                    </p>
-                    {brand.sku && (
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">SKU:</span> {brand.sku}
-                      </p>
-                    )}
-                    {brand.description && (
-                      <p className="text-sm text-muted-foreground pt-1">{brand.description}</p>
-                    )}
-                    <p className="text-sm text-muted-foreground pt-2">
-                      <span className="font-medium text-foreground">Total tests logged:</span> {readings.length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Readings table */}
-            <Card data-testid="card-readings-table">
-              <CardHeader>
-                <CardTitle>Usage History</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {readings.length === 0 ? (
-                  <div className="py-12 text-center text-muted-foreground">
-                    No readings logged with this brand yet.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date &amp; Time</TableHead>
-                          <TableHead className="text-center">pH</TableHead>
-                          <TableHead className="text-center">Chlorine<br /><span className="font-normal text-xs">(ppm)</span></TableHead>
-                          <TableHead className="text-center">Alkalinity<br /><span className="font-normal text-xs">(ppm)</span></TableHead>
-                          <TableHead className="text-center">Bromine<br /><span className="font-normal text-xs">(ppm)</span></TableHead>
-                          <TableHead className="text-center">Hardness<br /><span className="font-normal text-xs">(ppm)</span></TableHead>
-                          <TableHead className="text-center">Confidence</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {readings.map((reading) => (
-                          <TableRow key={reading.id} data-testid={`row-reading-${reading.id}`}>
-                            <TableCell className="whitespace-nowrap text-sm">
-                              {format(new Date(reading.timestamp), "MMM d, yyyy")}
-                              <br />
-                              <span className="text-muted-foreground text-xs">
-                                {format(new Date(reading.timestamp), "h:mm a")}
+          {/* Readings table */}
+          <Card data-testid="card-readings-table">
+            <CardHeader>
+              <CardTitle>Usage History</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {readings.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  No readings logged with this brand yet.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date &amp; Time</TableHead>
+                        <TableHead className="text-center">pH</TableHead>
+                        <TableHead className="text-center">
+                          Chlorine<br /><span className="font-normal text-xs">(ppm)</span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          Alkalinity<br /><span className="font-normal text-xs">(ppm)</span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          Bromine<br /><span className="font-normal text-xs">(ppm)</span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          Hardness<br /><span className="font-normal text-xs">(ppm)</span>
+                        </TableHead>
+                        <TableHead className="text-center">Confidence</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {readings.map((reading) => (
+                        <TableRow key={reading.id} data-testid={`row-reading-${reading.id}`}>
+                          <TableCell className="whitespace-nowrap text-sm">
+                            {format(new Date(reading.timestamp), "MMM d, yyyy")}
+                            <br />
+                            <span className="text-muted-foreground text-xs">
+                              {format(new Date(reading.timestamp), "h:mm a")}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">{statusBadge(reading.pH, "ph")}</TableCell>
+                          <TableCell className="text-center">{statusBadge(reading.chlorine, "chlorine")}</TableCell>
+                          <TableCell className="text-center">{statusBadge(reading.alkalinity, "alkalinity")}</TableCell>
+                          <TableCell className="text-center">{statusBadge(reading.bromine, "bromine")}</TableCell>
+                          <TableCell className="text-center">{statusBadge(reading.hardness, "hardness")}</TableCell>
+                          <TableCell className="text-center">
+                            {reading.confidence !== null ? (
+                              <span className="text-sm tabular-nums">
+                                {Math.round((reading.confidence ?? 0) * 100)}%
                               </span>
-                            </TableCell>
-                            <TableCell className="text-center">{statusBadge(reading.pH, "ph")}</TableCell>
-                            <TableCell className="text-center">{statusBadge(reading.chlorine, "chlorine")}</TableCell>
-                            <TableCell className="text-center">{statusBadge(reading.alkalinity, "alkalinity")}</TableCell>
-                            <TableCell className="text-center">{statusBadge(reading.bromine, "bromine")}</TableCell>
-                            <TableCell className="text-center">{statusBadge(reading.hardness, "hardness")}</TableCell>
-                            <TableCell className="text-center">
-                              {reading.confidence !== null ? (
-                                <span className="text-sm tabular-nums">
-                                  {Math.round((reading.confidence ?? 0) * 100)}%
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground text-sm">—</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </main>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
