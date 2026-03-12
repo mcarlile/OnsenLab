@@ -49,9 +49,9 @@ export interface ImageData {
 const parameterReadingSchema = {
   type: "object" as const,
   properties: {
-    value: { type: "number" as const, nullable: true },
-    confidence: { type: "number" as const, nullable: true },
-    interval: { type: "number" as const, nullable: true },
+    value: { type: "number" as const },
+    confidence: { type: "number" as const },
+    interval: { type: "number" as const },
   },
 };
 
