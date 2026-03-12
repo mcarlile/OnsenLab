@@ -32,6 +32,7 @@ export interface ChemicalReadings {
   bromineInterval: number | null;
   hardnessInterval: number | null;
   parameters: Record<string, ParameterReading>;
+  intervals: Record<string, number | null>;
 }
 
 interface BrandInfo {
@@ -44,6 +45,16 @@ export interface ImageData {
   base64: string;
   mimeType: string;
 }
+
+const parameterReadingSchema = {
+  type: "object" as const,
+  properties: {
+    value: { type: ["number", "null"] as const },
+    confidence: { type: ["number", "null"] as const },
+    interval: { type: ["number", "null"] as const },
+  },
+  required: ["value", "confidence", "interval"],
+};
 
 export async function analyzeTestStrip(
   images: ImageData[],
@@ -76,35 +87,17 @@ Look for these measurements:
 - Total Bromine (typically 0-20 ppm, may not be present)
 - Total Hardness (typically 0-1000 ppm, may not be present)
 
-FOR EACH PARAMETER you can detect:
-1. Determine the numerical value by matching the pad color to the closest color block on the key.
-2. Assign a per-parameter confidence score (0.0 to 1.0) based on:
-   - Image focus and lighting quality
-   - How closely the pad color matches a specific color block vs. falling between blocks
-   - Whether the color key is visible and legible
-3. Calculate a margin of error (interval) based on how close the pad color is to adjacent color blocks.
+FOR EACH PARAMETER you can detect, return an object with:
+1. "value": the numerical reading by matching the pad color to the closest color block on the key
+2. "confidence": a per-parameter confidence score (0.0 to 1.0) based on image focus, lighting quality, and how closely the pad matches a specific color block
+3. "interval": a margin of error based on how close the pad color is to adjacent color blocks (e.g. 0.2 means ±0.2)
 
-Return a JSON object with these exact fields:
-{
-  "pH": number or null,
-  "pHConfidence": number (0-1) or null,
-  "pHInterval": number (margin of error, e.g. 0.2 for +/- 0.2) or null,
-  "chlorine": number or null,
-  "chlorineConfidence": number or null,
-  "chlorineInterval": number or null,
-  "alkalinity": number or null,
-  "alkalinityConfidence": number or null,
-  "alkalinityInterval": number or null,
-  "bromine": number or null,
-  "bromineConfidence": number or null,
-  "bromineInterval": number or null,
-  "hardness": number or null,
-  "hardnessConfidence": number or null,
-  "hardnessInterval": number or null,
-  "confidence": number (0-1, overall confidence across all readings)
-}
+If you cannot detect a specific parameter, set all three fields (value, confidence, interval) to null.
 
-If you cannot detect a specific reading, set its value, confidence, and interval all to null.
+Return a JSON object with:
+- "parameters": an object with keys "pH", "chlorine", "alkalinity", "bromine", "hardness", each containing {value, confidence, interval}
+- "confidence": overall confidence across all readings (0-1)
+
 Be conservative with confidence scores - only give high confidence when colors are clearly visible, well-lit, and closely match a specific color block on the key.`;
 
     const imageParts = images.map(img => ({
@@ -122,31 +115,20 @@ Be conservative with confidence scores - only give high confidence when colors a
         responseSchema: {
           type: "object",
           properties: {
-            pH: { type: ["number", "null"] },
-            pHConfidence: { type: ["number", "null"] },
-            pHInterval: { type: ["number", "null"] },
-            chlorine: { type: ["number", "null"] },
-            chlorineConfidence: { type: ["number", "null"] },
-            chlorineInterval: { type: ["number", "null"] },
-            alkalinity: { type: ["number", "null"] },
-            alkalinityConfidence: { type: ["number", "null"] },
-            alkalinityInterval: { type: ["number", "null"] },
-            bromine: { type: ["number", "null"] },
-            bromineConfidence: { type: ["number", "null"] },
-            bromineInterval: { type: ["number", "null"] },
-            hardness: { type: ["number", "null"] },
-            hardnessConfidence: { type: ["number", "null"] },
-            hardnessInterval: { type: ["number", "null"] },
+            parameters: {
+              type: "object",
+              properties: {
+                pH: parameterReadingSchema,
+                chlorine: parameterReadingSchema,
+                alkalinity: parameterReadingSchema,
+                bromine: parameterReadingSchema,
+                hardness: parameterReadingSchema,
+              },
+              required: ["pH", "chlorine", "alkalinity", "bromine", "hardness"],
+            },
             confidence: { type: "number" },
           },
-          required: [
-            "pH", "pHConfidence", "pHInterval",
-            "chlorine", "chlorineConfidence", "chlorineInterval",
-            "alkalinity", "alkalinityConfidence", "alkalinityInterval",
-            "bromine", "bromineConfidence", "bromineInterval",
-            "hardness", "hardnessConfidence", "hardnessInterval",
-            "confidence",
-          ],
+          required: ["parameters", "confidence"],
         },
       },
       contents: [
@@ -158,15 +140,37 @@ Be conservative with confidence scores - only give high confidence when colors a
     const rawJson = result.text;
 
     if (rawJson) {
-      const raw = JSON.parse(rawJson);
+      const raw = JSON.parse(rawJson) as {
+        parameters: Record<string, { value: number | null; confidence: number | null; interval: number | null }>;
+        confidence: number;
+      };
+
+      const p = raw.parameters;
+
       const data: ChemicalReadings = {
-        ...raw,
-        parameters: {
-          pH: { value: raw.pH, confidence: raw.pHConfidence, interval: raw.pHInterval },
-          chlorine: { value: raw.chlorine, confidence: raw.chlorineConfidence, interval: raw.chlorineInterval },
-          alkalinity: { value: raw.alkalinity, confidence: raw.alkalinityConfidence, interval: raw.alkalinityInterval },
-          bromine: { value: raw.bromine, confidence: raw.bromineConfidence, interval: raw.bromineInterval },
-          hardness: { value: raw.hardness, confidence: raw.hardnessConfidence, interval: raw.hardnessInterval },
+        pH: p.pH.value,
+        chlorine: p.chlorine.value,
+        alkalinity: p.alkalinity.value,
+        bromine: p.bromine.value,
+        hardness: p.hardness.value,
+        confidence: raw.confidence,
+        pHConfidence: p.pH.confidence,
+        chlorineConfidence: p.chlorine.confidence,
+        alkalinityConfidence: p.alkalinity.confidence,
+        bromineConfidence: p.bromine.confidence,
+        hardnessConfidence: p.hardness.confidence,
+        pHInterval: p.pH.interval,
+        chlorineInterval: p.chlorine.interval,
+        alkalinityInterval: p.alkalinity.interval,
+        bromineInterval: p.bromine.interval,
+        hardnessInterval: p.hardness.interval,
+        parameters: p,
+        intervals: {
+          pH: p.pH.interval,
+          chlorine: p.chlorine.interval,
+          alkalinity: p.alkalinity.interval,
+          bromine: p.bromine.interval,
+          hardness: p.hardness.interval,
         },
       };
       return data;
