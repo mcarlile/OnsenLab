@@ -9,8 +9,7 @@ export async function uploadAuditImage(
   mimeType: string,
   part: "top" | "bottom"
 ): Promise<string> {
-  const ext = mimeType.includes("png") ? "png" : "jpg";
-  const fileName = `audits/${readingId}_${part}.${ext}`;
+  const fileName = `audits/${readingId}_${part}.jpg`;
   const objectName = `public/${fileName}`;
 
   const bucket = objectStorageClient.bucket(BUCKET_ID);
