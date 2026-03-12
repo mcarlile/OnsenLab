@@ -144,7 +144,7 @@ Be conservative with confidence scores - only give high confidence when colors a
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       const result = await ai.models.generateContent({
-        model: "gemini-2.5-pro",
+        model: "gemini-3-flash-preview",
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",

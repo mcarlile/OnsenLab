@@ -2,13 +2,11 @@ import { type TestReading, type InsertTestReading, type TestStripBrand, type Ins
 import { randomUUID } from "crypto";
 
 export interface IStorage {
-  // Test readings
   getTestReading(id: string): Promise<TestReading | undefined>;
   getAllTestReadings(): Promise<TestReading[]>;
   getReadingsByBrandId(brandId: string): Promise<TestReading[]>;
   createTestReading(reading: InsertTestReading): Promise<TestReading>;
-  
-  // Test strip brands
+
   getTestStripBrand(id: string): Promise<TestStripBrand | undefined>;
   getAllTestStripBrands(): Promise<TestStripBrand[]>;
   createTestStripBrand(brand: InsertTestStripBrand): Promise<TestStripBrand>;
@@ -71,7 +69,8 @@ export class MemStorage implements IStorage {
     const reading: TestReading = { 
       id,
       timestamp: new Date(),
-      imageUrl: insertReading.imageUrl ?? null,
+      imageTopUrl: insertReading.imageTopUrl ?? null,
+      imageBottomUrl: insertReading.imageBottomUrl ?? null,
       brandId: insertReading.brandId ?? null,
       pH: insertReading.pH ?? null,
       chlorine: insertReading.chlorine ?? null,

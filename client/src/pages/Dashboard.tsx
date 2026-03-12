@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import type { TestReading } from "@shared/schema";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 function getLowConfidenceParams(reading: TestReading): string[] {
   const LOW_THRESHOLD = 0.70;
@@ -26,6 +27,7 @@ function getLowConfidenceParams(reading: TestReading): string[] {
 export default function Dashboard() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const { data: readings = [], isLoading } = useQuery<TestReading[]>({
     queryKey: ['/api/readings'],
@@ -252,7 +254,7 @@ export default function Dashboard() {
                 bromineConfidence: r.bromineConfidence,
                 hardnessConfidence: r.hardnessConfidence,
               }))}
-              onViewDetails={(id) => console.log('View details for:', id)}
+              onViewDetails={(id) => navigate(`/readings/${id}`)}
             />
           </section>
         </div>

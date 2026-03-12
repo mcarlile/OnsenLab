@@ -3,8 +3,11 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
 import { analyzeTestStrip } from "./gemini";
+import { uploadAuditImage, objectStorageService } from "./imageStorage";
 import { insertTestReadingSchema, insertTestStripBrandSchema } from "@shared/schema";
 import { z } from "zod";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { randomUUID } from "crypto";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -19,6 +22,22 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  registerObjectStorageRoutes(app);
+
+  app.get("/api/audit-images/*", async (req, res) => {
+    try {
+      const filePath = req.params[0];
+      const file = await objectStorageService.searchPublicObject(filePath);
+      if (!file) {
+        return res.status(404).json({ error: "Image not found" });
+      }
+      await objectStorageService.downloadObject(file, res, 86400);
+    } catch (error) {
+      console.error("Failed to serve audit image:", error);
+      res.status(500).json({ error: "Failed to serve image" });
+    }
+  });
+
   app.get("/api/readings", async (req, res) => {
     try {
       const readings = await storage.getAllTestReadings();
@@ -63,6 +82,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const readingId = randomUUID();
+
+      let imageTopUrl: string | null = null;
+      let imageBottomUrl: string | null = null;
+
+      try {
+        imageTopUrl = await uploadAuditImage(readingId, files[0].buffer, files[0].mimetype, "top");
+        if (files[1]) {
+          imageBottomUrl = await uploadAuditImage(readingId, files[1].buffer, files[1].mimetype, "bottom");
+        }
+      } catch (uploadErr) {
+        console.error("Image storage upload failed (continuing with analysis):", uploadErr);
+      }
+
       const images = files.map(file => ({
         base64: file.buffer.toString('base64'),
         mimeType: file.mimetype,
@@ -71,7 +104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analysis = await analyzeTestStrip(images, brandInfo);
 
       const readingData = insertTestReadingSchema.parse({
-        imageUrl: null,
+        imageTopUrl,
+        imageBottomUrl,
         brandId: brandId || null,
         pH: analysis.pH,
         chlorine: analysis.chlorine,

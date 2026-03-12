@@ -9,12 +9,14 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import Dashboard from "@/pages/Dashboard";
 import BrandsManagement from "@/pages/BrandsManagement";
 import BrandDetail from "@/pages/BrandDetail";
+import TestDetail from "@/pages/TestDetail";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/readings/:id" component={TestDetail} />
       <Route path="/brands" component={BrandsManagement} />
       <Route path="/brands/:id" component={BrandDetail} />
       <Route component={NotFound} />

@@ -16,7 +16,8 @@ export const testStripBrands = pgTable("test_strip_brands", {
 export const testReadings = pgTable("test_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
-  imageUrl: text("image_url"),
+  imageTopUrl: text("image_top_url"),
+  imageBottomUrl: text("image_bottom_url"),
   brandId: varchar("brand_id"),
   pH: real("ph"),
   chlorine: real("chlorine"),
