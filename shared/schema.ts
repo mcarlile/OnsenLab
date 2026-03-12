@@ -24,6 +24,16 @@ export const testReadings = pgTable("test_readings", {
   bromine: real("bromine"),
   hardness: real("hardness"),
   confidence: real("confidence"),
+  pHInterval: real("ph_interval"),
+  chlorineInterval: real("chlorine_interval"),
+  alkalinityInterval: real("alkalinity_interval"),
+  bromineInterval: real("bromine_interval"),
+  hardnessInterval: real("hardness_interval"),
+  pHConfidence: real("ph_confidence"),
+  chlorineConfidence: real("chlorine_confidence"),
+  alkalinityConfidence: real("alkalinity_confidence"),
+  bromineConfidence: real("bromine_confidence"),
+  hardnessConfidence: real("hardness_confidence"),
 });
 
 export const insertTestStripBrandSchema = createInsertSchema(testStripBrands).omit({

@@ -11,6 +11,8 @@ interface ChemicalLevelCardProps {
   warningMin?: number;
   warningMax?: number;
   icon?: React.ReactNode;
+  interval?: number | null;
+  paramConfidence?: number | null;
 }
 
 export function ChemicalLevelCard({
@@ -21,7 +23,8 @@ export function ChemicalLevelCard({
   optimalMax,
   warningMin,
   warningMax,
-  icon,
+  interval,
+  paramConfidence,
 }: ChemicalLevelCardProps) {
   const getStatus = () => {
     if (value === null) return "unknown";
@@ -36,6 +39,7 @@ export function ChemicalLevelCard({
   };
 
   const status = getStatus();
+  const isLowConfidence = paramConfidence !== null && paramConfidence !== undefined && paramConfidence < 0.70;
 
   const statusConfig = {
     optimal: {
@@ -81,11 +85,22 @@ export function ChemicalLevelCard({
           <div>
             <div className={`text-3xl font-bold ${config.color}`} data-testid={`text-${name.toLowerCase()}-value`}>
               {value !== null ? value.toFixed(1) : "--"}
+              {value !== null && interval !== null && interval !== undefined && interval > 0 && (
+                <span className="text-lg font-normal text-muted-foreground ml-1">
+                  ±{interval % 1 === 0 ? interval : interval.toFixed(1)}
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-1">{unit}</p>
             <p className="text-xs text-muted-foreground mt-1">
               Optimal: {optimalMin}-{optimalMax} {unit}
             </p>
+            {paramConfidence !== null && paramConfidence !== undefined && (
+              <p className={`text-xs mt-1 ${isLowConfidence ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"}`}
+                 data-testid={`text-${name.toLowerCase()}-confidence`}>
+                Confidence: {Math.round(paramConfidence * 100)}%
+              </p>
+            )}
           </div>
           <Badge variant={config.badgeVariant} className="text-xs">
             {config.badge}

@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import type { TestStripBrand, TestReading } from "@shared/schema";
 
 function statusBadge(value: number | null, type: "ph" | "chlorine" | "alkalinity" | "bromine" | "hardness") {
-  if (value === null) return <span className="text-muted-foreground text-sm">—</span>;
+  if (value === null) return <span className="text-muted-foreground text-sm">&mdash;</span>;
 
   const ranges: Record<string, { ok: [number, number]; warn: [number, number] }> = {
     ph:         { ok: [7.2, 7.6], warn: [7.0, 7.8] },
@@ -29,6 +29,12 @@ function statusBadge(value: number | null, type: "ph" | "chlorine" | "alkalinity
       {value}
     </Badge>
   );
+}
+
+function formatInterval(interval: number | null | undefined) {
+  if (interval === null || interval === undefined || interval <= 0) return null;
+  const display = interval % 1 === 0 ? interval.toString() : interval.toFixed(1);
+  return <span className="text-muted-foreground text-xs ml-1">±{display}</span>;
 }
 
 export default function BrandDetail() {
@@ -57,7 +63,6 @@ export default function BrandDetail() {
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-      {/* Page header */}
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -93,7 +98,6 @@ export default function BrandDetail() {
         </Card>
       ) : (
         <>
-          {/* Brand info */}
           <Card data-testid="card-brand-info">
             <CardContent className="pt-6">
               <div className="flex gap-6 flex-col sm:flex-row">
@@ -128,7 +132,6 @@ export default function BrandDetail() {
             </CardContent>
           </Card>
 
-          {/* Readings table */}
           <Card data-testid="card-readings-table">
             <CardHeader>
               <CardTitle>Usage History</CardTitle>
@@ -161,31 +164,61 @@ export default function BrandDetail() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {readings.map((reading) => (
-                        <TableRow key={reading.id} data-testid={`row-reading-${reading.id}`}>
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {format(new Date(reading.timestamp), "MMM d, yyyy")}
-                            <br />
-                            <span className="text-muted-foreground text-xs">
-                              {format(new Date(reading.timestamp), "h:mm a")}
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-center">{statusBadge(reading.pH, "ph")}</TableCell>
-                          <TableCell className="text-center">{statusBadge(reading.chlorine, "chlorine")}</TableCell>
-                          <TableCell className="text-center">{statusBadge(reading.alkalinity, "alkalinity")}</TableCell>
-                          <TableCell className="text-center">{statusBadge(reading.bromine, "bromine")}</TableCell>
-                          <TableCell className="text-center">{statusBadge(reading.hardness, "hardness")}</TableCell>
-                          <TableCell className="text-center">
-                            {reading.confidence !== null ? (
-                              <span className="text-sm tabular-nums">
-                                {Math.round((reading.confidence ?? 0) * 100)}%
+                      {readings.map((reading) => {
+                        const hasLowConf = [
+                          reading.pHConfidence,
+                          reading.chlorineConfidence,
+                          reading.alkalinityConfidence,
+                          reading.bromineConfidence,
+                          reading.hardnessConfidence,
+                        ].some(c => c !== null && c !== undefined && c < 0.70);
+
+                        return (
+                          <TableRow key={reading.id} data-testid={`row-reading-${reading.id}`}>
+                            <TableCell className="whitespace-nowrap text-sm">
+                              {format(new Date(reading.timestamp), "MMM d, yyyy")}
+                              <br />
+                              <span className="text-muted-foreground text-xs">
+                                {format(new Date(reading.timestamp), "h:mm a")}
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {statusBadge(reading.pH, "ph")}
+                              {formatInterval(reading.pHInterval)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {statusBadge(reading.chlorine, "chlorine")}
+                              {formatInterval(reading.chlorineInterval)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {statusBadge(reading.alkalinity, "alkalinity")}
+                              {formatInterval(reading.alkalinityInterval)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {statusBadge(reading.bromine, "bromine")}
+                              {formatInterval(reading.bromineInterval)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {statusBadge(reading.hardness, "hardness")}
+                              {formatInterval(reading.hardnessInterval)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                {reading.confidence !== null ? (
+                                  <span className="text-sm tabular-nums">
+                                    {Math.round((reading.confidence ?? 0) * 100)}%
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">&mdash;</span>
+                                )}
+                                {hasLowConf && (
+                                  <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>

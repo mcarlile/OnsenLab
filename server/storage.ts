@@ -24,7 +24,6 @@ export class MemStorage implements IStorage {
     this.testReadings = new Map();
     this.testStripBrands = new Map();
     
-    // Add some default test strip brands
     const defaultBrands = [
       {
         id: randomUUID(),
@@ -51,7 +50,6 @@ export class MemStorage implements IStorage {
     });
   }
 
-  // Test readings
   async getTestReading(id: string): Promise<TestReading | undefined> {
     return this.testReadings.get(id);
   }
@@ -81,12 +79,21 @@ export class MemStorage implements IStorage {
       bromine: insertReading.bromine ?? null,
       hardness: insertReading.hardness ?? null,
       confidence: insertReading.confidence ?? null,
+      pHInterval: insertReading.pHInterval ?? null,
+      chlorineInterval: insertReading.chlorineInterval ?? null,
+      alkalinityInterval: insertReading.alkalinityInterval ?? null,
+      bromineInterval: insertReading.bromineInterval ?? null,
+      hardnessInterval: insertReading.hardnessInterval ?? null,
+      pHConfidence: insertReading.pHConfidence ?? null,
+      chlorineConfidence: insertReading.chlorineConfidence ?? null,
+      alkalinityConfidence: insertReading.alkalinityConfidence ?? null,
+      bromineConfidence: insertReading.bromineConfidence ?? null,
+      hardnessConfidence: insertReading.hardnessConfidence ?? null,
     };
     this.testReadings.set(id, reading);
     return reading;
   }
 
-  // Test strip brands
   async getTestStripBrand(id: string): Promise<TestStripBrand | undefined> {
     return this.testStripBrands.get(id);
   }

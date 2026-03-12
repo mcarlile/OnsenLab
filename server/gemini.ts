@@ -15,6 +15,16 @@ export interface ChemicalReadings {
   bromine: number | null;
   hardness: number | null;
   confidence: number;
+  pHConfidence: number | null;
+  chlorineConfidence: number | null;
+  alkalinityConfidence: number | null;
+  bromineConfidence: number | null;
+  hardnessConfidence: number | null;
+  pHInterval: number | null;
+  chlorineInterval: number | null;
+  alkalinityInterval: number | null;
+  bromineInterval: number | null;
+  hardnessInterval: number | null;
 }
 
 interface BrandInfo {
@@ -38,11 +48,19 @@ export async function analyzeTestStrip(
       : '';
 
     const multiImageNote = images.length > 1
-      ? '\n\nYou are being provided multiple images of the SAME test strip. The strip may have been too long to capture in a single photo, so each image shows different pads/sections. Combine readings from all images to produce a single complete set of results.'
+      ? `\n\nYou are being provided multiple images of the SAME test strip and its color key.
+The user took two photos because the strip is long and the bottle key is cylindrical.
+
+IMPORTANT MULTI-IMAGE RULES:
+- Identify all reagent pads across both images.
+- Identify the brand's color key blocks in both images.
+- FOR EACH PAD: Match it to the corresponding color scale found WITHIN THE SAME IMAGE to ensure lighting and color temperature consistency.
+- DE-DUPLICATION: If a pad appears in both images, return only the result with the higher confidence score.
+- AGNOSTICISM: Do not use pre-known brand colors. Rely entirely on the key provided in the photos.`
       : '';
 
-    const systemPrompt = `You are an expert at analyzing hot tub and pool test strips from images.
-Analyze the test strip in the image and extract the chemical readings.${brandContext}${multiImageNote}
+    const systemPrompt = `ACT AS: A water chemistry expert and computer vision analyst.
+Analyze the test strip in the provided image(s) and extract chemical readings.${brandContext}${multiImageNote}
 
 Look for these measurements:
 - pH (typically 6.0-8.4 range)
@@ -51,18 +69,36 @@ Look for these measurements:
 - Total Bromine (typically 0-20 ppm, may not be present)
 - Total Hardness (typically 0-1000 ppm, may not be present)
 
+FOR EACH PARAMETER you can detect:
+1. Determine the numerical value by matching the pad color to the closest color block on the key.
+2. Assign a per-parameter confidence score (0.0 to 1.0) based on:
+   - Image focus and lighting quality
+   - How closely the pad color matches a specific color block vs. falling between blocks
+   - Whether the color key is visible and legible
+3. Calculate a margin of error (interval) based on how close the pad color is to adjacent color blocks.
+
 Return a JSON object with these exact fields:
 {
   "pH": number or null,
+  "pHConfidence": number (0-1) or null,
+  "pHInterval": number (margin of error, e.g. 0.2 for +/- 0.2) or null,
   "chlorine": number or null,
+  "chlorineConfidence": number or null,
+  "chlorineInterval": number or null,
   "alkalinity": number or null,
+  "alkalinityConfidence": number or null,
+  "alkalinityInterval": number or null,
   "bromine": number or null,
+  "bromineConfidence": number or null,
+  "bromineInterval": number or null,
   "hardness": number or null,
-  "confidence": number (0-1, your confidence in the readings)
+  "hardnessConfidence": number or null,
+  "hardnessInterval": number or null,
+  "confidence": number (0-1, overall confidence across all readings)
 }
 
-If you cannot detect a specific reading, set it to null.
-Be conservative with your confidence score - only give high confidence when the colors are clearly visible and match the color chart.`;
+If you cannot detect a specific reading, set its value, confidence, and interval all to null.
+Be conservative with confidence scores - only give high confidence when colors are clearly visible, well-lit, and closely match a specific color block on the key.`;
 
     const imageParts = images.map(img => ({
       inlineData: {
@@ -80,18 +116,35 @@ Be conservative with your confidence score - only give high confidence when the 
           type: "object",
           properties: {
             pH: { type: ["number", "null"] },
+            pHConfidence: { type: ["number", "null"] },
+            pHInterval: { type: ["number", "null"] },
             chlorine: { type: ["number", "null"] },
+            chlorineConfidence: { type: ["number", "null"] },
+            chlorineInterval: { type: ["number", "null"] },
             alkalinity: { type: ["number", "null"] },
+            alkalinityConfidence: { type: ["number", "null"] },
+            alkalinityInterval: { type: ["number", "null"] },
             bromine: { type: ["number", "null"] },
+            bromineConfidence: { type: ["number", "null"] },
+            bromineInterval: { type: ["number", "null"] },
             hardness: { type: ["number", "null"] },
+            hardnessConfidence: { type: ["number", "null"] },
+            hardnessInterval: { type: ["number", "null"] },
             confidence: { type: "number" },
           },
-          required: ["pH", "chlorine", "alkalinity", "bromine", "hardness", "confidence"],
+          required: [
+            "pH", "pHConfidence", "pHInterval",
+            "chlorine", "chlorineConfidence", "chlorineInterval",
+            "alkalinity", "alkalinityConfidence", "alkalinityInterval",
+            "bromine", "bromineConfidence", "bromineInterval",
+            "hardness", "hardnessConfidence", "hardnessInterval",
+            "confidence",
+          ],
         },
       },
       contents: [
         ...imageParts,
-        "Analyze this test strip image and extract all chemical readings you can detect.",
+        "Analyze this test strip image and extract all chemical readings with per-parameter confidence scores and margins of error.",
       ],
     });
 

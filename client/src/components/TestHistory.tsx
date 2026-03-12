@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye } from "lucide-react";
+import { Eye, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 
 interface TestReading {
@@ -11,11 +11,32 @@ interface TestReading {
   chlorine: number | null;
   alkalinity: number | null;
   confidence?: number | null;
+  pHInterval?: number | null;
+  chlorineInterval?: number | null;
+  alkalinityInterval?: number | null;
+  pHConfidence?: number | null;
+  chlorineConfidence?: number | null;
+  alkalinityConfidence?: number | null;
 }
 
 interface TestHistoryProps {
   readings: TestReading[];
   onViewDetails?: (id: string) => void;
+}
+
+function formatWithInterval(value: number | null, interval?: number | null, decimals = 1) {
+  if (value === null) return "--";
+  const v = value.toFixed(decimals);
+  if (interval !== null && interval !== undefined && interval > 0) {
+    const i = interval % 1 === 0 ? interval.toString() : interval.toFixed(decimals);
+    return `${v} ±${i}`;
+  }
+  return v;
+}
+
+function hasLowConfidence(reading: TestReading): boolean {
+  const confidences = [reading.pHConfidence, reading.chlorineConfidence, reading.alkalinityConfidence];
+  return confidences.some(c => c !== null && c !== undefined && c < 0.70);
 }
 
 export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
@@ -50,46 +71,54 @@ export function TestHistory({ readings, onViewDetails }: TestHistoryProps) {
               </tr>
             </thead>
             <tbody>
-              {readings.map((reading, index) => (
-                <tr 
-                  key={reading.id} 
-                  className={index % 2 === 0 ? "bg-muted/30" : ""}
-                  data-testid={`row-reading-${reading.id}`}
-                >
-                  <td className="py-3 px-3 sm:px-4 text-xs sm:text-sm font-mono">
-                    <div className="flex flex-col">
-                      <span>{format(reading.timestamp, "MMM d, yyyy")}</span>
-                      <span className="text-muted-foreground text-xs">{format(reading.timestamp, "HH:mm")}</span>
-                    </div>
-                  </td>
-                  <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium">
-                    {reading.pH !== null ? reading.pH.toFixed(1) : "--"}
-                  </td>
-                  <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden sm:table-cell">
-                    {reading.chlorine !== null ? `${reading.chlorine.toFixed(1)}` : "--"}
-                  </td>
-                  <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden md:table-cell">
-                    {reading.alkalinity !== null ? `${reading.alkalinity.toFixed(0)}` : "--"}
-                  </td>
-                  <td className="text-center py-3 px-2 sm:px-3 hidden lg:table-cell">
-                    {reading.confidence && (
-                      <Badge variant={reading.confidence >= 0.8 ? "default" : "secondary"} className="text-xs">
-                        {Math.round(reading.confidence * 100)}%
-                      </Badge>
-                    )}
-                  </td>
-                  <td className="text-right py-3 px-3 sm:px-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onViewDetails?.(reading.id)}
-                      data-testid={`button-view-${reading.id}`}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+              {readings.map((reading, index) => {
+                const lowConf = hasLowConfidence(reading);
+                return (
+                  <tr 
+                    key={reading.id} 
+                    className={index % 2 === 0 ? "bg-muted/30" : ""}
+                    data-testid={`row-reading-${reading.id}`}
+                  >
+                    <td className="py-3 px-3 sm:px-4 text-xs sm:text-sm font-mono">
+                      <div className="flex flex-col">
+                        <span>{format(reading.timestamp, "MMM d, yyyy")}</span>
+                        <span className="text-muted-foreground text-xs">{format(reading.timestamp, "HH:mm")}</span>
+                      </div>
+                    </td>
+                    <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium tabular-nums">
+                      {formatWithInterval(reading.pH, reading.pHInterval)}
+                    </td>
+                    <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden sm:table-cell tabular-nums">
+                      {formatWithInterval(reading.chlorine, reading.chlorineInterval)}
+                    </td>
+                    <td className="text-center py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium hidden md:table-cell tabular-nums">
+                      {formatWithInterval(reading.alkalinity, reading.alkalinityInterval, 0)}
+                    </td>
+                    <td className="text-center py-3 px-2 sm:px-3 hidden lg:table-cell">
+                      <div className="flex items-center justify-center gap-1">
+                        {reading.confidence != null && (
+                          <Badge variant={reading.confidence >= 0.8 ? "default" : reading.confidence >= 0.7 ? "secondary" : "destructive"} className="text-xs">
+                            {Math.round(reading.confidence * 100)}%
+                          </Badge>
+                        )}
+                        {lowConf && (
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-right py-3 px-3 sm:px-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewDetails?.(reading.id)}
+                        data-testid={`button-view-${reading.id}`}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

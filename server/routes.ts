@@ -8,7 +8,7 @@ import { z } from "zod";
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -19,7 +19,6 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Get all test readings
   app.get("/api/readings", async (req, res) => {
     try {
       const readings = await storage.getAllTestReadings();
@@ -30,7 +29,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get a specific test reading
   app.get("/api/readings/:id", async (req, res) => {
     try {
       const reading = await storage.getTestReading(req.params.id);
@@ -44,7 +42,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload and analyze test strip image(s)
   app.post("/api/analyze", upload.array('images', 2), async (req, res) => {
     try {
       const files = req.files as Express.Multer.File[] | undefined;
@@ -55,7 +52,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const brandId = req.body.brandId;
       let brandInfo = null;
 
-      // Get brand information if provided
       if (brandId) {
         const brand = await storage.getTestStripBrand(brandId);
         if (brand) {
@@ -67,16 +63,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Convert images to base64
       const images = files.map(file => ({
         base64: file.buffer.toString('base64'),
         mimeType: file.mimetype,
       }));
 
-      // Analyze with Gemini AI
       const analysis = await analyzeTestStrip(images, brandInfo);
 
-      // Validate and store the reading
       const readingData = insertTestReadingSchema.parse({
         imageUrl: null,
         brandId: brandId || null,
@@ -86,10 +79,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bromine: analysis.bromine,
         hardness: analysis.hardness,
         confidence: analysis.confidence,
+        pHInterval: analysis.pHInterval,
+        chlorineInterval: analysis.chlorineInterval,
+        alkalinityInterval: analysis.alkalinityInterval,
+        bromineInterval: analysis.bromineInterval,
+        hardnessInterval: analysis.hardnessInterval,
+        pHConfidence: analysis.pHConfidence,
+        chlorineConfidence: analysis.chlorineConfidence,
+        alkalinityConfidence: analysis.alkalinityConfidence,
+        bromineConfidence: analysis.bromineConfidence,
+        hardnessConfidence: analysis.hardnessConfidence,
       });
 
       const reading = await storage.createTestReading(readingData);
-
       res.json(reading);
     } catch (error) {
       console.error("Failed to analyze test strip:", error);
@@ -108,7 +110,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get readings for a specific brand
   app.get("/api/brands/:id/readings", async (req, res) => {
     try {
       const readings = await storage.getReadingsByBrandId(req.params.id);
@@ -119,7 +120,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get a single brand
   app.get("/api/brands/:id", async (req, res) => {
     try {
       const brand = await storage.getTestStripBrand(req.params.id);
@@ -131,7 +131,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all test strip brands
   app.get("/api/brands", async (req, res) => {
     try {
       const brands = await storage.getAllTestStripBrands();
@@ -142,7 +141,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a new test strip brand
   app.post("/api/brands", async (req, res) => {
     try {
       const brandData = insertTestStripBrandSchema.parse(req.body);
@@ -150,52 +148,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(brand);
     } catch (error) {
       console.error("Failed to create brand:", error);
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          error: "Invalid data format", 
-          details: error.errors 
-        });
+        return res.status(400).json({ error: "Invalid data format", details: error.errors });
       }
-      
       res.status(500).json({ error: "Failed to create brand" });
     }
   });
 
-  // Update a test strip brand
   app.patch("/api/brands/:id", async (req, res) => {
     try {
       const updates = insertTestStripBrandSchema.partial().parse(req.body);
       const brand = await storage.updateTestStripBrand(req.params.id, updates);
-      
       if (!brand) {
         return res.status(404).json({ error: "Brand not found" });
       }
-      
       res.json(brand);
     } catch (error) {
       console.error("Failed to update brand:", error);
-      
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          error: "Invalid data format", 
-          details: error.errors 
-        });
+        return res.status(400).json({ error: "Invalid data format", details: error.errors });
       }
-      
       res.status(500).json({ error: "Failed to update brand" });
     }
   });
 
-  // Delete a test strip brand
   app.delete("/api/brands/:id", async (req, res) => {
     try {
       const success = await storage.deleteTestStripBrand(req.params.id);
-      
       if (!success) {
         return res.status(404).json({ error: "Brand not found" });
       }
-      
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete brand:", error);
@@ -203,17 +185,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upload brand image
   app.post("/api/brands/upload-image", upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No image file provided" });
       }
-
-      // Convert image to base64 data URL for in-memory storage
       const base64Image = req.file.buffer.toString('base64');
       const dataUrl = `data:${req.file.mimetype};base64,${base64Image}`;
-
       res.json({ imageUrl: dataUrl });
     } catch (error) {
       console.error("Failed to upload brand image:", error);
@@ -222,6 +200,5 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
-
   return httpServer;
 }

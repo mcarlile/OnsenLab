@@ -10,6 +10,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### March 12, 2026
+- **Per-Parameter Confidence & Intervals**: Each chemical reading (pH, chlorine, alkalinity, bromine, hardness) now includes its own confidence score and margin-of-error interval
+- **Schema Extended**: 10 new columns added to `test_readings`: `pHInterval`, `chlorineInterval`, `alkalinityInterval`, `bromineInterval`, `hardnessInterval`, `pHConfidence`, `chlorineConfidence`, `alkalinityConfidence`, `bromineConfidence`, `hardnessConfidence`
+- **Gemini Prompt Overhaul**: AI now returns per-parameter confidence and interval values; multi-image instructions enforce same-image color-key matching and de-duplication rules
+- **ChemicalLevelCard Enhanced**: Displays values in "7.4 ±0.2" format with per-parameter confidence percentage; low-confidence values highlighted in amber
+- **Low-Confidence Warning Banner**: Dashboard shows an amber alert banner when any parameter in the latest reading has confidence < 70%, listing affected parameters
+- **TestHistory Updated**: Table cells show interval notation (±) alongside values; confidence column uses destructive badge variant for < 70% readings with warning icon
+- **BrandDetail Updated**: Usage history table shows interval notation next to status badges for each chemical parameter; confidence column shows warning icon for low-confidence readings
+
 ### October 10, 2025
 - **Enhanced Upload Flow**: Added dual upload options supporting both camera capture and gallery upload using HTML5 file input attributes
 - **Test Strip Brand Management**: Created dedicated brands management page (/brands) with full CRUD operations for test strip brands
@@ -74,10 +83,12 @@ Preferred communication style: Simple, everyday language.
 - Optional test strip brand selection for context-aware AI analysis
 
 **AI Integration**
-- Google Gemini AI (gemini-2.5-flash or gemini-2.5-pro series) for image analysis
-- Structured JSON output from vision model
+- Google Gemini AI (gemini-2.5-pro) for image analysis
+- Structured JSON output from vision model with per-parameter confidence scores and margin-of-error intervals
 - Brand-specific context injection to improve color matching accuracy
-- Confidence scoring for analysis reliability
+- Multi-image support with same-image color-key matching and de-duplication rules
+- Per-parameter confidence scoring (pHConfidence, chlorineConfidence, etc.) and overall confidence
+- Margin-of-error intervals (pHInterval, chlorineInterval, etc.) based on color match precision
 
 ### Data Storage Solutions
 
@@ -90,7 +101,7 @@ Preferred communication style: Simple, everyday language.
 - `test_strip_brands` table: Stores test strip product information (id, name, manufacturer, sku, description, imageUrl, color_ranges)
   - SKU field for product/model identification
   - imageUrl stores base64 data URLs for brand images
-- `test_readings` table: Chemical readings with timestamp, image URL, brand reference, and measurement values (pH, chlorine, alkalinity, bromine, hardness, confidence score)
+- `test_readings` table: Chemical readings with timestamp, image URL, brand reference, measurement values (pH, chlorine, alkalinity, bromine, hardness), overall confidence, per-parameter confidence scores (*Confidence), and per-parameter margin-of-error intervals (*Interval)
 - UUID primary keys generated via `gen_random_uuid()`
 - Optional brand association for readings (nullable foreign key relationship)
 
