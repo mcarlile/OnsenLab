@@ -1,0 +1,84 @@
+Technical Specification: Dual-Photo Vision Pipeline for OnsenLab
+Goal: Implement a feature to interpret chemical test strips by analyzing two photos (Top and Bottom) to account for long strips and curved bottle keys. This must be brand-agnostic and provide confidence intervals.
+
+1. Core Logic & Analysis Service
+Create services/vision_analyzer.py and implement the following analyze_dual_photos function.
+
+Python
+import google.generativeai as genai
+import PIL.Image
+import json
+import os
+
+def analyze_dual_photos(photo_1_path, photo_2_path):
+    """
+    Analyzes two photos of a test strip and its color key using Gemini 1.5 Flash.
+    Returns a unified measurement object with confidence intervals.
+    """
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    
+    # Configure model for structured JSON output
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash",
+        generation_config={"response_mime_type": "application/json"}
+    )
+
+    # Load images (Resize to 1024px max dimension to optimize latency)
+    img1 = PIL.Image.open(photo_1_path)
+    img2 = PIL.Image.open(photo_2_path)
+
+    prompt = """
+    ACT AS: A water chemistry expert and computer vision analyst.
+    INPUT: Two images of the same hot tub test strip next to its color key. 
+    CONTEXT: The user took two photos because the strip is long and the bottle key is cylindrical.
+    
+    INSTRUCTIONS:
+    1. Identify all reagent pads across both images.
+    2. Identify the brand's color key blocks in both images.
+    3. FOR EACH PAD: Match it to the corresponding color scale found WITHIN THE SAME IMAGE to ensure lighting/color temperature consistency.
+    4. CALCULATE: 
+       - 'value': The numerical score (ppm or pH).
+       - 'confidence': A score from 0.0 to 1.0 based on focus, lighting, and how closely the pad matches a specific color block.
+       - 'interval': A margin of error (e.g., +/- 0.2 for pH) based on color match proximity.
+    5. DE-DUPLICATION: If a pad appears in both images, return only the result with the higher confidence score.
+    6. AGNOSTICISM: Do not use pre-known brand colors. Rely entirely on the key provided in the photos.
+    
+    RETURN JSON FORMAT:
+    {
+      "results": {
+        "parameter_name": {"value": 7.4, "confidence": 0.92, "interval": "+/- 0.2", "unit": "pH"},
+        "alkalinity": {"value": 80, "confidence": 0.85, "interval": "+/- 10", "unit": "ppm"}
+      },
+      "meta": {
+        "lighting_consistent": true,
+        "overall_confidence": 0.88
+      }
+    }
+    """
+
+    response = model.generate_content([prompt, img1, img2])
+    return json.loads(response.text)
+2. Backend Integration (API)
+Update the POST /api/test-strip endpoint (or create a new one) to handle two files:
+
+State Management: The endpoint should accept image_top and image_bottom.
+
+Processing: Call analyze_dual_photos and store the resulting JSON in the database.
+
+Volume Context: Link the results to the user's specific hot tub volume (e.g., 375 gallons for a Hot Spring Vanguard) to calculate subsequent chemical dosages.
+
+3. Minimal UI Changes
+Form Update: Modify the "New Test Strip" form to include two file upload fields: "Photo 1 (Top)" and "Photo 2 (Bottom)".
+
+Results Display: Update the frontend to display the value alongside the interval (e.g., "pH: 7.4 ± 0.2").
+
+Confidence Highlighting: If confidence < 0.70, display a warning: "Low confidence reading. Try retaking in natural daylight."
+
+4. Requirements
+Ensure these are in requirements.txt:
+
+google-generativeai
+
+Pillow
+
+opencv-python-headless
