@@ -42,7 +42,6 @@ export const insertTestStripBrandSchema = createInsertSchema(testStripBrands).om
 });
 
 export const insertTestReadingSchema = createInsertSchema(testReadings).omit({
-  id: true,
   timestamp: true,
 });
 

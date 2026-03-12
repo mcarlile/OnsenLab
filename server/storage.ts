@@ -65,7 +65,7 @@ export class MemStorage implements IStorage {
   }
 
   async createTestReading(insertReading: InsertTestReading): Promise<TestReading> {
-    const id = randomUUID();
+    const id = insertReading.id || randomUUID();
     const reading: TestReading = { 
       id,
       timestamp: new Date(),

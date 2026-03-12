@@ -93,7 +93,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imageBottomUrl = await uploadAuditImage(readingId, files[1].buffer, files[1].mimetype, "bottom");
         }
       } catch (uploadErr) {
-        console.error("Image storage upload failed (continuing with analysis):", uploadErr);
+        console.error("Image storage upload failed:", uploadErr);
+        return res.status(500).json({
+          error: "Failed to store audit images",
+          details: "Could not persist uploaded photos. Please try again.",
+        });
       }
 
       const images = files.map(file => ({
@@ -104,6 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const analysis = await analyzeTestStrip(images, brandInfo);
 
       const readingData = insertTestReadingSchema.parse({
+        id: readingId,
         imageTopUrl,
         imageBottomUrl,
         brandId: brandId || null,
