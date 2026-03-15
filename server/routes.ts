@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import { analyzeTestStrip } from "./gemini";
 import { uploadAuditImage, objectStorageService } from "./imageStorage";
+import { compressImage } from "./imageCompressor";
 import { insertTestReadingSchema, insertTestStripBrandSchema } from "@shared/schema";
 import { z } from "zod";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -62,50 +63,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/analyze", upload.array('images', 2), async (req, res) => {
-    try {
-      const files = req.files as Express.Multer.File[] | undefined;
-      if (!files || files.length === 0) {
-        return res.status(400).json({ error: "No image file provided" });
-      }
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: "No image file provided" });
+    }
 
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const send = (data: object) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    try {
       const brandId = req.body.brandId;
       let brandInfo = null;
-
       if (brandId) {
         const brand = await storage.getTestStripBrand(brandId);
         if (brand) {
-          brandInfo = {
-            name: brand.name,
-            manufacturer: brand.manufacturer,
-            description: brand.description,
-          };
+          brandInfo = { name: brand.name, manufacturer: brand.manufacturer, description: brand.description };
         }
       }
 
       const readingId = randomUUID();
 
-      let imageTopUrl: string | null = null;
-      let imageBottomUrl: string | null = null;
+      send({ type: "status", phase: "compressing", label: "Compressing photos" });
+      const compressed = await Promise.all(files.map(f => compressImage(f.buffer)));
 
-      try {
-        imageTopUrl = await uploadAuditImage(readingId, files[0].buffer, files[0].mimetype, "top");
-        if (files[1]) {
-          imageBottomUrl = await uploadAuditImage(readingId, files[1].buffer, files[1].mimetype, "bottom");
-        }
-      } catch (uploadErr) {
-        console.error("Image storage upload failed:", uploadErr);
-        return res.status(500).json({
-          error: "Failed to store audit images",
-          details: "Could not persist uploaded photos. Please try again.",
-        });
-      }
+      send({ type: "status", phase: "analyzing", label: "Securing photos \u0026 analyzing with AI" });
 
-      const images = files.map(file => ({
-        base64: file.buffer.toString('base64'),
-        mimeType: file.mimetype,
-      }));
-
-      const analysis = await analyzeTestStrip(images, brandInfo);
+      const [imageTopUrl, imageBottomUrl, analysis] = await Promise.all([
+        uploadAuditImage(readingId, compressed[0], "image/jpeg", "top").catch((err) => {
+          console.error("Top image upload failed:", err);
+          throw new Error("Failed to store audit images. Please try again.");
+        }),
+        compressed[1]
+          ? uploadAuditImage(readingId, compressed[1], "image/jpeg", "bottom").catch((err) => {
+              console.error("Bottom image upload failed:", err);
+              throw new Error("Failed to store audit images. Please try again.");
+            })
+          : Promise.resolve(null),
+        analyzeTestStrip(
+          compressed.map(buf => ({ base64: buf.toString("base64"), mimeType: "image/jpeg" })),
+          brandInfo
+        ),
+      ]);
 
       const readingData = insertTestReadingSchema.parse({
         id: readingId,
@@ -130,25 +133,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hardnessConfidence: analysis.hardnessConfidence,
       });
 
-      const reading = await storage.createTestReading(readingData);
-      res.json(reading);
+      send({ type: "complete", reading: readingData });
+
+      await storage.createTestReading(readingData);
+      res.end();
     } catch (error) {
       console.error("Failed to analyze test strip:", error);
-      
+
+      let details = "Failed to analyze. Please try again.";
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          error: "Invalid data format", 
-          details: "The image analysis returned unexpected data. Please try again." 
-        });
+        details = "The image analysis returned unexpected data. Please try again.";
+      } else if (error instanceof Error) {
+        details = error.message;
       }
 
-      const errorMsg = error instanceof Error ? error.message : "Unknown error";
-      const isQuota = errorMsg.toLowerCase().includes("rate limit") || errorMsg.toLowerCase().includes("quota");
-      
-      res.status(isQuota ? 429 : 500).json({ 
-        error: "Failed to analyze test strip", 
-        details: errorMsg
-      });
+      send({ type: "error", error: details });
+      res.end();
     }
   });
 

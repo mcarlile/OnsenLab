@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { UploadDialog } from "@/components/UploadDialog";
+import { useQuery } from "@tanstack/react-query";
+import { UploadDialog, type UploadPhase } from "@/components/UploadDialog";
 import { ChemicalLevelCard } from "@/components/ChemicalLevelCard";
 import { TrendChart } from "@/components/TrendChart";
 import { TestHistory } from "@/components/TestHistory";
@@ -26,6 +26,8 @@ function getLowConfidenceParams(reading: TestReading): string[] {
 
 export default function Dashboard() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<UploadPhase>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -33,47 +35,60 @@ export default function Dashboard() {
     queryKey: ['/api/readings'],
   });
 
-  const analyzeMutation = useMutation({
-    mutationFn: async ({ files, brandId }: { files: File[]; brandId?: string }) => {
-      const formData = new FormData();
-      for (const file of files) {
-        formData.append('images', file);
-      }
-      if (brandId && brandId !== 'none') {
-        formData.append('brandId', brandId);
-      }
+  const handleUpload = async (files: File[], brandId?: string) => {
+    const formData = new FormData();
+    for (const file of files) formData.append('images', file);
+    if (brandId && brandId !== 'none') formData.append('brandId', brandId);
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
+    setUploadPhase("compressing");
+    setUploadError(null);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.details || error.error || 'Failed to analyze image');
+    try {
+      const response = await fetch('/api/analyze', { method: 'POST', body: formData });
+
+      if (!response.body) {
+        throw new Error("No response stream received");
       }
 
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/readings'] });
-      setUploadDialogOpen(false);
-      toast({
-        title: "Analysis Complete",
-        description: `Test strip analyzed with ${Math.round((data.confidence || 0) * 100)}% confidence`,
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Analysis Failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-  const handleUpload = (files: File[], brandId?: string) => {
-    analyzeMutation.mutate({ files, brandId });
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.type === 'status') {
+            setUploadPhase(data.phase as UploadPhase);
+          } else if (data.type === 'complete') {
+            setUploadPhase('done');
+            await queryClient.invalidateQueries({ queryKey: ['/api/readings'] });
+            setTimeout(() => {
+              setUploadDialogOpen(false);
+              setUploadPhase(null);
+            }, 600);
+            toast({
+              title: "Analysis Complete",
+              description: `Test strip analyzed with ${Math.round((data.reading?.confidence || 0) * 100)}% confidence`,
+            });
+          } else if (data.type === 'error') {
+            setUploadPhase('error');
+            setUploadError(data.error || 'Analysis failed. Please try again.');
+          }
+        }
+      }
+    } catch (err) {
+      setUploadPhase('error');
+      setUploadError(err instanceof Error ? err.message : 'Unexpected error. Please try again.');
+    }
   };
 
   const latestReading = readings[0];
@@ -262,9 +277,17 @@ export default function Dashboard() {
 
       <UploadDialog
         open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && uploadPhase === null) {
+            setUploadDialogOpen(false);
+            setUploadError(null);
+          } else if (open) {
+            setUploadDialogOpen(true);
+          }
+        }}
         onUpload={handleUpload}
-        isAnalyzing={analyzeMutation.isPending}
+        uploadPhase={uploadPhase}
+        uploadError={uploadError}
       />
     </div>
   );

@@ -89,9 +89,16 @@ Preferred communication style: Simple, everyday language.
 - Dual upload methods: camera capture (HTML5 `capture="environment"`) and gallery upload
 - Multer middleware for multipart/form-data processing
 - 10MB file size limit enforced
-- Images persisted to Replit App Storage (Object Storage) in `public/audits/` directory
+- **Image compression**: Sharp resizes each image to 1024px max dimension at 70% JPEG quality before upload
+- Compressed images persisted to Replit App Storage (Object Storage) in `public/audits/` directory
 - Image URLs stored on test reading records (`imageTopUrl`, `imageBottomUrl`)
 - Optional test strip brand selection for context-aware AI analysis
+
+**Upload Speed Optimizations**
+- Object Storage upload and Gemini AI call run in parallel (`Promise.all`) — total wait time is `max(upload_time, ai_time)` not their sum
+- `POST /api/analyze` streams Server-Sent Events so the client gets live phase updates in real time
+- Gemini configured with `temperature: 0.1` and `topK: 1` for fast, decisive responses
+- `complete` event emitted immediately when AI returns; DB write follows without blocking the stream
 
 **AI Integration**
 - Google Gemini AI (gemini-3-flash-preview) for image analysis

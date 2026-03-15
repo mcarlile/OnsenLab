@@ -148,6 +148,8 @@ Be conservative with confidence scores - only give high confidence when colors a
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: "application/json",
+          temperature: 0.1,
+          topK: 1,
           responseSchema: {
             type: "object",
             properties: {
