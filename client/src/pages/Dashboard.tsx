@@ -48,6 +48,18 @@ export default function Dashboard() {
     try {
       const response = await fetch('/api/analyze', { method: 'POST', body: formData });
 
+      if (!response.ok) {
+        let errorMsg = 'Analysis failed. Please try again.';
+        try {
+          const errorData = await response.json();
+          errorMsg = errorData.details || errorData.error || errorMsg;
+        } catch {}
+        setFailedPhase('compressing');
+        setUploadPhase('error');
+        setUploadError(errorMsg);
+        return;
+      }
+
       if (!response.body) {
         throw new Error("No response stream received");
       }

@@ -27,7 +27,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/audit-images/*", async (req, res) => {
     try {
-      const filePath = req.params[0];
+      const filePath = (req.params as Record<string, string>)[0];
       const file = await objectStorageService.searchPublicObject(filePath);
       if (!file) {
         return res.status(404).json({ error: "Image not found" });
