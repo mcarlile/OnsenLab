@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadPhase, setUploadPhase] = useState<UploadPhase>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [failedPhase, setFailedPhase] = useState<string | null>(null);
   const { toast } = useToast();
   const [, navigate] = useLocation();
 
@@ -42,6 +43,7 @@ export default function Dashboard() {
 
     setUploadPhase("compressing");
     setUploadError(null);
+    setFailedPhase(null);
 
     try {
       const response = await fetch('/api/analyze', { method: 'POST', body: formData });
@@ -80,12 +82,14 @@ export default function Dashboard() {
               description: `Test strip analyzed with ${Math.round((data.reading?.confidence || 0) * 100)}% confidence`,
             });
           } else if (data.type === 'error') {
+            setFailedPhase(data.phase || 'analyzing');
             setUploadPhase('error');
             setUploadError(data.error || 'Analysis failed. Please try again.');
           }
         }
       }
     } catch (err) {
+      setFailedPhase('compressing');
       setUploadPhase('error');
       setUploadError(err instanceof Error ? err.message : 'Unexpected error. Please try again.');
     }
@@ -281,6 +285,12 @@ export default function Dashboard() {
           if (!open && uploadPhase === null) {
             setUploadDialogOpen(false);
             setUploadError(null);
+            setFailedPhase(null);
+          } else if (!open && uploadPhase === 'error') {
+            setUploadDialogOpen(false);
+            setUploadPhase(null);
+            setUploadError(null);
+            setFailedPhase(null);
           } else if (open) {
             setUploadDialogOpen(true);
           }
@@ -288,6 +298,7 @@ export default function Dashboard() {
         onUpload={handleUpload}
         uploadPhase={uploadPhase}
         uploadError={uploadError}
+        failedPhase={failedPhase}
       />
     </div>
   );

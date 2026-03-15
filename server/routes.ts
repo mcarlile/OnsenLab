@@ -76,6 +76,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.write(`data: ${JSON.stringify(data)}\n\n`);
     };
 
+    let currentPhase: string = "compressing";
+
     try {
       const brandId = req.body.brandId;
       let brandInfo = null;
@@ -91,6 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       send({ type: "status", phase: "compressing", label: "Compressing photos" });
       const compressed = await Promise.all(files.map(f => compressImage(f.buffer)));
 
+      currentPhase = "analyzing";
       send({ type: "status", phase: "analyzing", label: "Securing photos \u0026 analyzing with AI" });
 
       const [imageTopUrl, imageBottomUrl, analysis] = await Promise.all([
@@ -109,6 +112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           brandInfo
         ),
       ]);
+
+      currentPhase = "saving";
 
       const readingData = insertTestReadingSchema.parse({
         id: readingId,
@@ -134,9 +139,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       send({ type: "complete", reading: readingData });
-
-      await storage.createTestReading(readingData);
       res.end();
+
+      storage.createTestReading(readingData).catch((err) => {
+        console.error("Background DB write failed:", err);
+      });
     } catch (error) {
       console.error("Failed to analyze test strip:", error);
 
@@ -147,7 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details = error.message;
       }
 
-      send({ type: "error", error: details });
+      send({ type: "error", error: details, phase: currentPhase });
       res.end();
     }
   });

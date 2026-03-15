@@ -22,6 +22,7 @@ interface UploadDialogProps {
   onUpload: (files: File[], brandId?: string) => void;
   uploadPhase: UploadPhase;
   uploadError: string | null;
+  failedPhase: string | null;
 }
 
 const STEPS: { phase: UploadPhase; label: string }[] = [
@@ -37,14 +38,14 @@ function stepIndex(phase: UploadPhase): number {
   return -1;
 }
 
-function ProgressSteps({ phase, error }: { phase: UploadPhase; error: string | null }) {
-  const current = stepIndex(phase);
+function ProgressSteps({ phase, error, failedPhase }: { phase: UploadPhase; error: string | null; failedPhase: string | null }) {
+  const current = phase === "error" ? stepIndex(failedPhase as UploadPhase) : stepIndex(phase);
 
   return (
     <div className="space-y-2 py-2" data-testid="upload-progress-steps">
       {STEPS.map((step, i) => {
-        const isDone = current > i || phase === "done";
-        const isActive = current === i && phase !== "error";
+        const isDone = (phase === "done") || (phase !== "error" && current > i) || (phase === "error" && i < current);
+        const isActive = current === i && phase !== "error" && phase !== "done";
         const isError = phase === "error" && current === i;
 
         return (
@@ -191,7 +192,7 @@ function ImageSlot({
   );
 }
 
-export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, uploadError }: UploadDialogProps) {
+export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, uploadError, failedPhase }: UploadDialogProps) {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [image1, setImage1] = useState<File | null>(null);
   const [image2, setImage2] = useState<File | null>(null);
@@ -230,7 +231,7 @@ export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, upload
 
         <div className="space-y-4">
           {uploadPhase !== null ? (
-            <ProgressSteps phase={uploadPhase} error={uploadError} />
+            <ProgressSteps phase={uploadPhase} error={uploadError} failedPhase={failedPhase} />
           ) : (
             <>
               <div className="space-y-2">
