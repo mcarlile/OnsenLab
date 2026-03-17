@@ -63,7 +63,10 @@ function isRetryableError(error: unknown): boolean {
     msg.includes("rate limit") ||
     msg.includes("too many requests") ||
     msg.includes("temporarily unavailable") ||
-    msg.includes("503");
+    msg.includes("503") ||
+    msg.includes("syntaxerror") ||
+    msg.includes("json") ||
+    msg.includes("empty response");
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -150,6 +153,7 @@ Be conservative with confidence scores - only give high confidence when colors a
           responseMimeType: "application/json",
           temperature: 0.1,
           topK: 1,
+          thinkingConfig: { thinkingBudget: 0 },
           responseSchema: {
             type: "object",
             properties: {
@@ -175,7 +179,17 @@ Be conservative with confidence scores - only give high confidence when colors a
         ],
       });
 
-      const rawJson = result.text;
+      let rawJson = "";
+      if (result.candidates?.[0]?.content?.parts) {
+        for (const part of result.candidates[0].content.parts) {
+          if ("text" in part && part.text && !("thought" in part && part.thought)) {
+            rawJson += part.text;
+          }
+        }
+      }
+      if (!rawJson) {
+        rawJson = result.text || "";
+      }
 
       if (!rawJson) {
         throw new Error("Empty response from Gemini");
