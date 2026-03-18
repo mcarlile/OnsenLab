@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -24,6 +24,8 @@ interface UploadDialogProps {
   uploadError: string | null;
   failedPhase: string | null;
 }
+
+const MAX_PHOTOS = 2;
 
 const STEPS: { phase: UploadPhase; label: string }[] = [
   { phase: "compressing", label: "Compressing photos" },
@@ -86,98 +88,110 @@ function ProgressSteps({ phase, error, failedPhase }: { phase: UploadPhase; erro
   );
 }
 
-function ImageSlot({
-  label,
-  file,
-  onFileSelect,
+interface SelectedPhoto {
+  file: File;
+  preview: string;
+}
+
+function PhotoPicker({
+  photos,
+  onAdd,
   onRemove,
   disabled,
-  slotIndex,
 }: {
-  label: string;
-  file: File | null;
-  onFileSelect: (file: File) => void;
-  onRemove: () => void;
+  photos: SelectedPhoto[];
+  onAdd: (files: File[]) => void;
+  onRemove: (index: number) => void;
   disabled: boolean;
-  slotIndex: number;
 }) {
   const galleryRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const isFull = photos.length >= MAX_PHOTOS;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      onFileSelect(selected);
-      const url = URL.createObjectURL(selected);
-      setPreview(url);
+  const handleGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (selected && selected.length > 0) {
+      onAdd(Array.from(selected));
     }
     e.target.value = "";
   };
 
-  const handleRemove = () => {
-    if (preview) {
-      URL.revokeObjectURL(preview);
-      setPreview(null);
+  const handleCameraChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      onAdd([selected]);
     }
-    onRemove();
+    e.target.value = "";
   };
 
-  if (file && preview) {
-    return (
-      <div className="relative rounded-md overflow-visible border border-border">
-        <img
-          src={preview}
-          alt={`Selected image ${slotIndex + 1}`}
-          className="w-full h-32 object-cover rounded-md"
-          data-testid={`img-preview-${slotIndex}`}
-        />
-        <Button
-          variant="destructive"
-          size="icon"
-          className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
-          onClick={handleRemove}
-          disabled={disabled}
-          data-testid={`button-remove-image-${slotIndex}`}
-        >
-          <X className="h-3 w-3" />
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          variant="outline"
-          className="h-20 flex flex-col gap-1"
-          onClick={() => cameraRef.current?.click()}
-          disabled={disabled}
-          data-testid={`button-camera-${slotIndex}`}
-        >
-          <Camera className="h-6 w-6" />
-          <span className="text-xs">Take Photo</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-20 flex flex-col gap-1"
-          onClick={() => galleryRef.current?.click()}
-          disabled={disabled}
-          data-testid={`button-gallery-${slotIndex}`}
-        >
-          <Upload className="h-6 w-6" />
-          <span className="text-xs">Gallery</span>
-        </Button>
-      </div>
+    <div className="space-y-3">
+      {photos.length > 0 && (
+        <div className="flex gap-3" data-testid="photo-previews">
+          {photos.map((photo, i) => (
+            <div key={i} className="relative rounded-md overflow-visible border border-border flex-1">
+              <img
+                src={photo.preview}
+                alt={`Selected photo ${i + 1}`}
+                className="w-full h-28 object-cover rounded-md"
+                data-testid={`img-preview-${i}`}
+              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                onClick={() => onRemove(i)}
+                disabled={disabled}
+                data-testid={`button-remove-image-${i}`}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!isFull && (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="outline"
+            className="h-16 flex flex-col gap-1"
+            onClick={() => galleryRef.current?.click()}
+            disabled={disabled}
+            data-testid="button-gallery"
+          >
+            <Upload className="h-5 w-5" />
+            <span className="text-xs">
+              {photos.length === 0 ? "Choose Photos" : "Add Another"}
+            </span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-16 flex flex-col gap-1"
+            onClick={() => cameraRef.current?.click()}
+            disabled={disabled}
+            data-testid="button-camera"
+          >
+            <Camera className="h-5 w-5" />
+            <span className="text-xs">Take Photo</span>
+          </Button>
+        </div>
+      )}
+
+      {isFull && (
+        <p className="text-xs text-muted-foreground text-center" data-testid="text-photo-limit">
+          Maximum {MAX_PHOTOS} photos reached
+        </p>
+      )}
+
       <input
         ref={galleryRef}
         type="file"
         accept="image/*"
+        multiple
         className="hidden"
-        onChange={handleChange}
-        data-testid={`input-gallery-${slotIndex}`}
+        onChange={handleGalleryChange}
+        data-testid="input-gallery"
       />
       <input
         ref={cameraRef}
@@ -185,8 +199,8 @@ function ImageSlot({
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={handleChange}
-        data-testid={`input-camera-${slotIndex}`}
+        onChange={handleCameraChange}
+        data-testid="input-camera"
       />
     </div>
   );
@@ -194,8 +208,7 @@ function ImageSlot({
 
 export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, uploadError, failedPhase }: UploadDialogProps) {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
-  const [image1, setImage1] = useState<File | null>(null);
-  const [image2, setImage2] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
 
   const { data: brands = [] } = useQuery<TestStripBrand[]>({
     queryKey: ["/api/brands"],
@@ -203,17 +216,41 @@ export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, upload
 
   const isAnalyzing = uploadPhase !== null && uploadPhase !== "error";
 
+  useEffect(() => {
+    if (!open && !isAnalyzing) {
+      photos.forEach(p => URL.revokeObjectURL(p.preview));
+      setPhotos([]);
+    }
+  }, [open]);
+
+  const handleAddPhotos = (files: File[]) => {
+    setPhotos(prev => {
+      const remaining = MAX_PHOTOS - prev.length;
+      const toAdd = files.slice(0, remaining);
+      const newPhotos = toAdd.map(file => ({
+        file,
+        preview: URL.createObjectURL(file),
+      }));
+      return [...prev, ...newPhotos];
+    });
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prev => {
+      const removed = prev[index];
+      if (removed) {
+        URL.revokeObjectURL(removed.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
   const handleAnalyze = () => {
-    if (!image1) return;
-    const files = image2 ? [image1, image2] : [image1];
-    onUpload(files, selectedBrand || undefined);
+    if (photos.length === 0) return;
+    onUpload(photos.map(p => p.file), selectedBrand || undefined);
   };
 
   const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen && !isAnalyzing) {
-      setImage1(null);
-      setImage2(null);
-    }
     if (!isAnalyzing) {
       onOpenChange(nextOpen);
     }
@@ -225,7 +262,7 @@ export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, upload
         <DialogHeader>
           <DialogTitle>Upload Test Strip Photo</DialogTitle>
           <DialogDescription>
-            Capture one or two photos of your test strip. If the strip is too long for one shot, add a second photo.
+            Select up to {MAX_PHOTOS} photos of your test strip. If the strip is too long for one shot, add a second photo.
           </DialogDescription>
         </DialogHeader>
 
@@ -260,32 +297,20 @@ export function UploadDialog({ open, onOpenChange, onUpload, uploadPhase, upload
                 <p className="text-xs text-muted-foreground">Selecting the correct brand improves AI accuracy</p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <Label>Photos</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <ImageSlot
-                    label="Photo 1 (required)"
-                    file={image1}
-                    onFileSelect={setImage1}
-                    onRemove={() => setImage1(null)}
-                    disabled={false}
-                    slotIndex={0}
-                  />
-                  <ImageSlot
-                    label="Photo 2 (optional)"
-                    file={image2}
-                    onFileSelect={setImage2}
-                    onRemove={() => setImage2(null)}
-                    disabled={false}
-                    slotIndex={1}
-                  />
-                </div>
+                <PhotoPicker
+                  photos={photos}
+                  onAdd={handleAddPhotos}
+                  onRemove={handleRemovePhoto}
+                  disabled={false}
+                />
               </div>
 
               <Button
                 className="w-full"
                 onClick={handleAnalyze}
-                disabled={!image1}
+                disabled={photos.length === 0}
                 data-testid="button-analyze"
               >
                 <FlaskConical className="h-4 w-4 mr-2" />
