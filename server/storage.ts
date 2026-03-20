@@ -1,138 +1,79 @@
-import { type TestReading, type InsertTestReading, type TestStripBrand, type InsertTestStripBrand } from "@shared/schema";
-import { randomUUID } from "crypto";
+import {
+  type TestReading, type InsertTestReading,
+  type TestStripBrand, type InsertTestStripBrand,
+  testReadings, testStripBrands,
+} from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getTestReading(id: string): Promise<TestReading | undefined>;
-  getAllTestReadings(): Promise<TestReading[]>;
-  getReadingsByBrandId(brandId: string): Promise<TestReading[]>;
+  getTestReading(id: string, userId: string): Promise<TestReading | undefined>;
+  getAllTestReadings(userId: string): Promise<TestReading[]>;
+  getReadingsByBrandId(brandId: string, userId: string): Promise<TestReading[]>;
   createTestReading(reading: InsertTestReading): Promise<TestReading>;
 
-  getTestStripBrand(id: string): Promise<TestStripBrand | undefined>;
-  getAllTestStripBrands(): Promise<TestStripBrand[]>;
+  getTestStripBrand(id: string, userId: string): Promise<TestStripBrand | undefined>;
+  getAllTestStripBrands(userId: string): Promise<TestStripBrand[]>;
   createTestStripBrand(brand: InsertTestStripBrand): Promise<TestStripBrand>;
-  updateTestStripBrand(id: string, brand: Partial<InsertTestStripBrand>): Promise<TestStripBrand | undefined>;
-  deleteTestStripBrand(id: string): Promise<boolean>;
+  updateTestStripBrand(id: string, userId: string, brand: Partial<InsertTestStripBrand>): Promise<TestStripBrand | undefined>;
+  deleteTestStripBrand(id: string, userId: string): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private testReadings: Map<string, TestReading>;
-  private testStripBrands: Map<string, TestStripBrand>;
-
-  constructor() {
-    this.testReadings = new Map();
-    this.testStripBrands = new Map();
-    
-    const defaultBrands = [
-      {
-        id: randomUUID(),
-        name: "6-in-1 Test Strips",
-        manufacturer: "AquaChek",
-        sku: "AQ-6IN1",
-        description: "Tests pH, Total Chlorine, Total Bromine, Total Alkalinity, Total Hardness, and Cyanuric Acid",
-        imageUrl: null,
-        colorRanges: null,
-      },
-      {
-        id: randomUUID(),
-        name: "7-Way Test Strips",
-        manufacturer: "JNW Direct",
-        sku: "JNW-7WAY",
-        description: "Tests pH, Free Chlorine, Total Chlorine, Bromine, Alkalinity, Hardness, and Cyanuric Acid",
-        imageUrl: null,
-        colorRanges: null,
-      },
-    ];
-    
-    defaultBrands.forEach(brand => {
-      this.testStripBrands.set(brand.id, brand);
-    });
-  }
-
-  async getTestReading(id: string): Promise<TestReading | undefined> {
-    return this.testReadings.get(id);
-  }
-
-  async getAllTestReadings(): Promise<TestReading[]> {
-    return Array.from(this.testReadings.values()).sort(
-      (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-    );
-  }
-
-  async getReadingsByBrandId(brandId: string): Promise<TestReading[]> {
-    return Array.from(this.testReadings.values())
-      .filter(r => r.brandId === brandId)
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }
-
-  async createTestReading(insertReading: InsertTestReading): Promise<TestReading> {
-    const id = insertReading.id || randomUUID();
-    const reading: TestReading = { 
-      id,
-      timestamp: new Date(),
-      imageTopUrl: insertReading.imageTopUrl ?? null,
-      imageBottomUrl: insertReading.imageBottomUrl ?? null,
-      brandId: insertReading.brandId ?? null,
-      pH: insertReading.pH ?? null,
-      chlorine: insertReading.chlorine ?? null,
-      alkalinity: insertReading.alkalinity ?? null,
-      bromine: insertReading.bromine ?? null,
-      hardness: insertReading.hardness ?? null,
-      confidence: insertReading.confidence ?? null,
-      pHInterval: insertReading.pHInterval ?? null,
-      chlorineInterval: insertReading.chlorineInterval ?? null,
-      alkalinityInterval: insertReading.alkalinityInterval ?? null,
-      bromineInterval: insertReading.bromineInterval ?? null,
-      hardnessInterval: insertReading.hardnessInterval ?? null,
-      pHConfidence: insertReading.pHConfidence ?? null,
-      chlorineConfidence: insertReading.chlorineConfidence ?? null,
-      alkalinityConfidence: insertReading.alkalinityConfidence ?? null,
-      bromineConfidence: insertReading.bromineConfidence ?? null,
-      hardnessConfidence: insertReading.hardnessConfidence ?? null,
-    };
-    this.testReadings.set(id, reading);
+export class DatabaseStorage implements IStorage {
+  async getTestReading(id: string, userId: string): Promise<TestReading | undefined> {
+    const [reading] = await db.select().from(testReadings)
+      .where(and(eq(testReadings.id, id), eq(testReadings.userId, userId)));
     return reading;
   }
 
-  async getTestStripBrand(id: string): Promise<TestStripBrand | undefined> {
-    return this.testStripBrands.get(id);
+  async getAllTestReadings(userId: string): Promise<TestReading[]> {
+    return db.select().from(testReadings)
+      .where(eq(testReadings.userId, userId))
+      .orderBy(desc(testReadings.timestamp));
   }
 
-  async getAllTestStripBrands(): Promise<TestStripBrand[]> {
-    return Array.from(this.testStripBrands.values()).sort(
-      (a, b) => a.name.localeCompare(b.name)
-    );
+  async getReadingsByBrandId(brandId: string, userId: string): Promise<TestReading[]> {
+    return db.select().from(testReadings)
+      .where(and(eq(testReadings.brandId, brandId), eq(testReadings.userId, userId)))
+      .orderBy(desc(testReadings.timestamp));
   }
 
-  async createTestStripBrand(insertBrand: InsertTestStripBrand): Promise<TestStripBrand> {
-    const id = randomUUID();
-    const brand: TestStripBrand = {
-      id,
-      name: insertBrand.name,
-      manufacturer: insertBrand.manufacturer,
-      sku: insertBrand.sku ?? null,
-      description: insertBrand.description ?? null,
-      imageUrl: insertBrand.imageUrl ?? null,
-      colorRanges: insertBrand.colorRanges ?? null,
-    };
-    this.testStripBrands.set(id, brand);
+  async createTestReading(reading: InsertTestReading): Promise<TestReading> {
+    const [created] = await db.insert(testReadings).values(reading).returning();
+    return created;
+  }
+
+  async getTestStripBrand(id: string, userId: string): Promise<TestStripBrand | undefined> {
+    const [brand] = await db.select().from(testStripBrands)
+      .where(and(eq(testStripBrands.id, id), eq(testStripBrands.userId, userId)));
     return brand;
   }
 
-  async updateTestStripBrand(id: string, updates: Partial<InsertTestStripBrand>): Promise<TestStripBrand | undefined> {
-    const existing = this.testStripBrands.get(id);
-    if (!existing) return undefined;
-    
-    const updated: TestStripBrand = {
-      ...existing,
-      ...updates,
-    };
-    this.testStripBrands.set(id, updated);
+  async getAllTestStripBrands(userId: string): Promise<TestStripBrand[]> {
+    return db.select().from(testStripBrands)
+      .where(eq(testStripBrands.userId, userId))
+      .orderBy(testStripBrands.name);
+  }
+
+  async createTestStripBrand(brand: InsertTestStripBrand): Promise<TestStripBrand> {
+    const [created] = await db.insert(testStripBrands).values(brand).returning();
+    return created;
+  }
+
+  async updateTestStripBrand(id: string, userId: string, updates: Partial<InsertTestStripBrand>): Promise<TestStripBrand | undefined> {
+    const [updated] = await db.update(testStripBrands)
+      .set(updates)
+      .where(and(eq(testStripBrands.id, id), eq(testStripBrands.userId, userId)))
+      .returning();
     return updated;
   }
 
-  async deleteTestStripBrand(id: string): Promise<boolean> {
-    return this.testStripBrands.delete(id);
+  async deleteTestStripBrand(id: string, userId: string): Promise<boolean> {
+    const result = await db.delete(testStripBrands)
+      .where(and(eq(testStripBrands.id, id), eq(testStripBrands.userId, userId)))
+      .returning();
+    return result.length > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

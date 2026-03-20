@@ -1,8 +1,11 @@
-import { Droplets, FlaskConical, Settings2 } from "lucide-react";
+import { Droplets, FlaskConical, Settings2, LogOut } from "lucide-react";
 import { useLocation, Link } from "wouter";
+import { useAuth } from "@/hooks/use-auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
@@ -28,11 +31,16 @@ const navItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user } = useAuth();
 
   const isActive = (url: string) => {
     if (url === "/") return location === "/";
     return location.startsWith(url);
   };
+
+  const initials = user
+    ? `${(user.firstName || "")[0] || ""}${(user.lastName || "")[0] || ""}`.toUpperCase() || "U"
+    : "U";
 
   return (
     <Sidebar>
@@ -70,6 +78,28 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      <SidebarFooter>
+        <div className="flex items-center gap-2 px-2 py-2">
+          <Avatar className="h-7 w-7 flex-shrink-0">
+            <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} />
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate" data-testid="text-user-name">
+              {user?.firstName || user?.email || "User"}
+            </p>
+          </div>
+          <a href="/api/logout">
+            <SidebarMenuButton
+              className="w-auto p-1.5"
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </SidebarMenuButton>
+          </a>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

@@ -3,8 +3,11 @@ import { pgTable, text, varchar, timestamp, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export * from "./models/auth";
+
 export const testStripBrands = pgTable("test_strip_brands", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
   name: text("name").notNull(),
   manufacturer: text("manufacturer").notNull(),
   sku: text("sku"),
@@ -15,6 +18,7 @@ export const testStripBrands = pgTable("test_strip_brands", {
 
 export const testReadings = pgTable("test_readings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull(),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
   imageTopUrl: text("image_top_url"),
   imageBottomUrl: text("image_bottom_url"),

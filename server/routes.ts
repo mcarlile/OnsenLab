@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { isAuthenticated } from "./replit_integrations/auth";
 import multer from "multer";
 import { analyzeTestStrip } from "./gemini";
 import { uploadAuditImage, objectStorageService } from "./imageStorage";
@@ -22,6 +23,10 @@ const upload = multer({
   },
 });
 
+function getUserId(req: any): string {
+  return req.user?.claims?.sub;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   registerObjectStorageRoutes(app);
 
@@ -39,9 +44,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/readings", async (req, res) => {
+  app.get("/api/readings", isAuthenticated, async (req, res) => {
     try {
-      const readings = await storage.getAllTestReadings();
+      const userId = getUserId(req);
+      const readings = await storage.getAllTestReadings(userId);
       res.json(readings);
     } catch (error) {
       console.error("Failed to fetch readings:", error);
@@ -49,9 +55,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/readings/:id", async (req, res) => {
+  app.get("/api/readings/:id", isAuthenticated, async (req, res) => {
     try {
-      const reading = await storage.getTestReading(req.params.id);
+      const userId = getUserId(req);
+      const reading = await storage.getTestReading(req.params.id, userId);
       if (!reading) {
         return res.status(404).json({ error: "Reading not found" });
       }
@@ -62,7 +69,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/analyze", upload.array('images', 2), async (req, res) => {
+  app.post("/api/analyze", isAuthenticated, upload.array('images', 2), async (req, res) => {
+    const userId = getUserId(req);
     const files = req.files as Express.Multer.File[] | undefined;
     if (!files || files.length === 0) {
       return res.status(400).json({ error: "No image file provided" });
@@ -82,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const brandId = req.body.brandId;
       let brandInfo = null;
       if (brandId) {
-        const brand = await storage.getTestStripBrand(brandId);
+        const brand = await storage.getTestStripBrand(brandId, userId);
         if (brand) {
           brandInfo = { name: brand.name, manufacturer: brand.manufacturer, description: brand.description };
         }
@@ -117,6 +125,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const readingData = insertTestReadingSchema.parse({
         id: readingId,
+        userId,
         imageTopUrl,
         imageBottomUrl,
         brandId: brandId || null,
@@ -159,9 +168,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/brands/:id/readings", async (req, res) => {
+  app.get("/api/brands/:id/readings", isAuthenticated, async (req, res) => {
     try {
-      const readings = await storage.getReadingsByBrandId(req.params.id);
+      const userId = getUserId(req);
+      const readings = await storage.getReadingsByBrandId(req.params.id, userId);
       res.json(readings);
     } catch (error) {
       console.error("Failed to fetch brand readings:", error);
@@ -169,9 +179,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/brands/:id", async (req, res) => {
+  app.get("/api/brands/:id", isAuthenticated, async (req, res) => {
     try {
-      const brand = await storage.getTestStripBrand(req.params.id);
+      const userId = getUserId(req);
+      const brand = await storage.getTestStripBrand(req.params.id, userId);
       if (!brand) return res.status(404).json({ error: "Brand not found" });
       res.json(brand);
     } catch (error) {
@@ -180,9 +191,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/brands", async (req, res) => {
+  app.get("/api/brands", isAuthenticated, async (req, res) => {
     try {
-      const brands = await storage.getAllTestStripBrands();
+      const userId = getUserId(req);
+      const brands = await storage.getAllTestStripBrands(userId);
       res.json(brands);
     } catch (error) {
       console.error("Failed to fetch brands:", error);
@@ -190,9 +202,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/brands", async (req, res) => {
+  app.post("/api/brands", isAuthenticated, async (req, res) => {
     try {
-      const brandData = insertTestStripBrandSchema.parse(req.body);
+      const userId = getUserId(req);
+      const brandData = insertTestStripBrandSchema.parse({ ...req.body, userId });
       const brand = await storage.createTestStripBrand(brandData);
       res.json(brand);
     } catch (error) {
@@ -204,10 +217,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/brands/:id", async (req, res) => {
+  app.patch("/api/brands/:id", isAuthenticated, async (req, res) => {
     try {
+      const userId = getUserId(req);
       const updates = insertTestStripBrandSchema.partial().parse(req.body);
-      const brand = await storage.updateTestStripBrand(req.params.id, updates);
+      const brand = await storage.updateTestStripBrand(req.params.id, userId, updates);
       if (!brand) {
         return res.status(404).json({ error: "Brand not found" });
       }
@@ -221,9 +235,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/brands/:id", async (req, res) => {
+  app.delete("/api/brands/:id", isAuthenticated, async (req, res) => {
     try {
-      const success = await storage.deleteTestStripBrand(req.params.id);
+      const userId = getUserId(req);
+      const success = await storage.deleteTestStripBrand(req.params.id, userId);
       if (!success) {
         return res.status(404).json({ error: "Brand not found" });
       }
@@ -234,7 +249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/brands/upload-image", upload.single('image'), async (req, res) => {
+  app.post("/api/brands/upload-image", isAuthenticated, upload.single('image'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No image file provided" });
